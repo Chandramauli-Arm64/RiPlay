@@ -34,7 +34,7 @@ val generateEnvironmentConfig by tasks.registering {
         "i3BRhLrV1v", "MApdyHLMyJ", "hizI7yLjL4", "rLoZP7BF4c", "nza34sU88C", "dwbUvjWUl3",
         "fqqhBZd0cf", "9sZKrkMg8p", "aQpNCVOe2i", "XNl2TKXLlB", "yNjbjspY8v", "eZueG672lt",
         "WkUFhXtC3G", "z4Xe47r8Vs", "AudioTagInfo_API_KEY", "RiPlay_LASTFM_API_KEY",
-        "RiPlay_LASTFM_SECRET", "RiPlay_DISCORD_APPLICATION_ID"
+        "RiPlay_LASTFM_SECRET", "RiPlay_DISCORD_APPLICATION_ID", "RiPlay_CHROMECAST_APPLICATION_ID"
     )
     inputs.properties(environmentPropertyNames.associateWith { propertyOrEmpty(it) })
 
@@ -101,6 +101,7 @@ val generateEnvironmentConfig by tasks.registering {
                 const val RiPlay_LASTFM_API_KEY = "${props["RiPlay_LASTFM_API_KEY"]}"
                 const val RiPlay_LASTFM_SECRET = "${props["RiPlay_LASTFM_SECRET"]}"
                 const val RiPlay_DISCORD_APPLICATION_ID = "${props["RiPlay_DISCORD_APPLICATION_ID"]}"
+                const val RiPlay_CHROMECAST_APPLICATION_ID = "${props["RiPlay_CHROMECAST_APPLICATION_ID"]}"
             }
             """.trimIndent()
         )
@@ -119,164 +120,6 @@ repositories {
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
 }
  */
-
-kotlin {
-    androidTarget {
-        @OptIn(ExperimentalKotlinGradlePluginApi::class)
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_21)
-            freeCompilerArgs.add("-Xcontext-receivers")
-        }
-    }
-
-    jvm("desktop")
-
-
-
-    sourceSets {
-        all {
-            languageSettings {
-                optIn("org.jetbrains.compose.resources.ExperimentalResourceApi")
-            }
-        }
-
-        val commonMain by getting {
-            kotlin.srcDir(generatedSrcDir)
-
-            dependencies {
-                implementation(compose.runtime)
-                implementation(compose.foundation)
-                implementation(compose.material3)
-                implementation(compose.ui)
-                implementation(compose.components.resources)
-                implementation(compose.components.uiToolingPreview)
-
-                implementation(project(":environment"))
-                implementation(project(":kugou"))
-                implementation(project(":lrclib"))
-                implementation(project(":audiotaginfo"))
-                implementation(project(":lastfm"))
-
-                implementation(libs.room.ktx)
-                implementation(libs.room.runtime)
-                implementation(libs.room.sqlite.bundled)
-
-                implementation(libs.mediaplayer.kmp)
-
-                implementation(libs.navigation.kmp)
-
-                //coil3 mp
-                implementation(libs.coil.compose.core)
-                implementation(libs.coil.compose)
-                implementation(libs.coil.mp)
-
-                implementation(libs.translator)
-                implementation(libs.reorderable)
-
-                implementation(libs.fastscroller)
-                implementation(libs.fastscroller.material3)
-                implementation(libs.fastscroller.indicator)
-
-
-                implementation(
-                    fileTree(
-                        mapOf(
-                            "dir" to "libs",
-                            "include" to listOf("*.aar", "*.jar")
-                        )
-                    )
-                )
-            }
-        }
-
-        val desktopMain by getting
-        desktopMain.dependencies {
-            implementation(compose.components.resources)
-            implementation(compose.desktop.currentOs)
-
-            implementation(libs.material.icon.desktop)
-            implementation(libs.vlcj)
-
-            val fxSuffix = "win"
-            implementation("org.openjfx:javafx-base:21.0.5:${fxSuffix}")
-            implementation("org.openjfx:javafx-graphics:21.0.5:${fxSuffix}")
-            implementation("org.openjfx:javafx-controls:21.0.5:${fxSuffix}")
-            implementation("org.openjfx:javafx-swing:21.0.5:${fxSuffix}")
-            implementation("org.openjfx:javafx-web:21.0.5:${fxSuffix}")
-            implementation("org.openjfx:javafx-media:21.0.5:${fxSuffix}")
-
-            implementation(libs.coil.network.okhttp)
-            runtimeOnly(libs.kotlinx.coroutines.swing)
-
-            /*
-            // Uncomment only for build jvm desktop version
-            // Comment before build android version
-            configurations.commonMainApi {
-                exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-android")
-            }
-            */
-
-        }
-
-        androidMain.dependencies {
-            implementation(libs.navigation)
-            implementation(libs.media3.session)
-            implementation(libs.media3.ui)
-            implementation(libs.kotlin.coroutines.guava)
-            implementation(libs.kotlin.concurrent.futures)
-            implementation(libs.androidx.webkit)
-            //implementation(libs.room.backup)
-            implementation(libs.workmanager)
-            implementation(libs.accompanist)
-
-            implementation(libs.compose.activity)
-            implementation(libs.compose.foundation)
-            implementation(libs.compose.ui)
-            implementation(libs.compose.ui.util)
-            implementation(libs.compose.ripple)
-            implementation(libs.compose.shimmer)
-            implementation(libs.compose.coil)
-            implementation(libs.palette)
-            implementation(libs.media3.exoplayer)
-            implementation(libs.media3.datasource.okhttp)
-            implementation(libs.appcompat)
-            implementation(libs.appcompat.resources)
-            implementation(libs.support)
-            implementation(libs.media)
-            implementation(libs.material)
-            implementation(libs.material3)
-            implementation(libs.compose.ui.graphics.android)
-            implementation(libs.constraintlayout)
-            implementation(libs.compose.runtime.livedata)
-            implementation(libs.compose.animation)
-            implementation(libs.kotlin.csv)
-            implementation(libs.monetcompat)
-            implementation(libs.androidmaterial)
-            implementation(libs.timber)
-            implementation(libs.crypto)
-            implementation(libs.logging.interceptor)
-            implementation(libs.math3)
-            implementation(libs.toasty)
-            implementation(libs.haze)
-            implementation(libs.androidyoutubeplayer) // replaced by project ayp
-            implementation(libs.androidyoutubeplayer.custom.ui) // replaced by project aypui
-            //implementation(project(":ayp"))
-            //implementation(project(":aypui"))
-            implementation(libs.glance.widgets)
-            implementation(libs.kizzy.rpc)
-            implementation(libs.gson)
-            implementation(libs.hypnoticcanvas)
-            implementation(libs.hypnoticcanvas.shaders)
-            implementation(libs.ktor.client.core)
-            implementation(libs.ktor.client.okhttp)
-            implementation(libs.ktor.client.websockets)
-            implementation(libs.multidex)
-            implementation(libs.jsoup)
-
-        }
-
-    }
-}
 
 val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
@@ -314,8 +157,8 @@ android {
         applicationId = "it.fast4x.riplay"
         minSdk = 24
         targetSdk = 36
-        versionCode = 70
-        versionName = "0.7.70"
+        versionCode = 75
+        versionName = "0.7.75"
 
         multiDexEnabled = true
 
@@ -612,7 +455,7 @@ android {
             isDefault = true
             dimension = "version"
             buildConfigField("String", "BUILD_VARIANT", "\"full\"")
-
+            resValue("string", "RiPlay_CHROMECAST_APPLICATION_ID", propertyOrEmpty("RiPlay_CHROMECAST_APPLICATION_ID"))
             /*
             resValue("string", "AudioTagInfo_API_KEY", propertyOrEmpty("AudioTagInfo_API_KEY"))
             resValue("string", "RiPlay_LASTFM_API_KEY", propertyOrEmpty("RiPlay_LASTFM_API_KEY"))
@@ -634,14 +477,9 @@ android {
             dimension = "version"
             //manifestPlaceholders["appName"] = "RiPlay"
             buildConfigField("String", "BUILD_VARIANT", "\"foss\"")
+            resValue("string", "RiPlay_CHROMECAST_APPLICATION_ID", "\"\"")
         }
     }
-
-//    tasks.withType<KotlinCompile> {
-//        if (name.substringAfter("compile").lowercase().startsWith("fdroid")) {
-//            exclude("**/extensions/chromecast/**")
-//        }
-//    }
 
     applicationVariants.all {
         val variant = this
@@ -723,24 +561,177 @@ compose.resources {
     generateResClass = always
 }
 
+kotlin {
+    androidTarget {
+        @OptIn(ExperimentalKotlinGradlePluginApi::class)
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_21)
+            freeCompilerArgs.add("-Xcontext-receivers")
+        }
+    }
+
+    jvm("desktop")
+
+
+
+    sourceSets {
+        all {
+            languageSettings {
+                optIn("org.jetbrains.compose.resources.ExperimentalResourceApi")
+            }
+        }
+
+        val commonMain by getting {
+            kotlin.srcDir(generatedSrcDir)
+
+            dependencies {
+                implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.material3)
+                implementation(compose.ui)
+                implementation(compose.components.resources)
+                implementation(compose.components.uiToolingPreview)
+
+                implementation(libs.ktor.client.core)
+                implementation(libs.ktor.client.okhttp)
+                implementation(libs.ktor.client.websockets)
+
+                implementation(project(":environment"))
+                implementation(project(":kugou"))
+                implementation(project(":lrclib"))
+                implementation(project(":audiotaginfo"))
+                implementation(project(":lastfm"))
+
+                implementation(libs.room.ktx)
+                implementation(libs.room.runtime)
+                implementation(libs.room.sqlite.bundled)
+
+                implementation(libs.mediaplayer.kmp)
+
+                implementation(libs.navigation.kmp)
+
+                //coil3 mp
+                implementation(libs.coil.compose.core)
+                implementation(libs.coil.compose)
+                implementation(libs.coil.mp)
+
+                implementation(libs.translator)
+                implementation(libs.reorderable)
+
+                implementation(libs.fastscroller)
+                implementation(libs.fastscroller.material3)
+                implementation(libs.fastscroller.indicator)
+
+
+                implementation(
+                    fileTree(
+                        mapOf(
+                            "dir" to "libs",
+                            "include" to listOf("*.aar", "*.jar")
+                        )
+                    )
+                )
+            }
+        }
+
+        val desktopMain by getting
+        desktopMain.dependencies {
+            implementation(compose.components.resources)
+            implementation(compose.desktop.currentOs)
+
+            implementation(libs.material.icon.desktop)
+            implementation(libs.vlcj)
+
+            val fxSuffix = "win"
+            implementation("org.openjfx:javafx-base:21.0.5:${fxSuffix}")
+            implementation("org.openjfx:javafx-graphics:21.0.5:${fxSuffix}")
+            implementation("org.openjfx:javafx-controls:21.0.5:${fxSuffix}")
+            implementation("org.openjfx:javafx-swing:21.0.5:${fxSuffix}")
+            implementation("org.openjfx:javafx-web:21.0.5:${fxSuffix}")
+            implementation("org.openjfx:javafx-media:21.0.5:${fxSuffix}")
+
+            implementation(libs.coil.network.okhttp)
+            runtimeOnly(libs.kotlinx.coroutines.swing)
+
+            /*
+            // Uncomment only for build jvm desktop version
+            // Comment before build android version
+            configurations.commonMainApi {
+                exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-android")
+            }
+            */
+
+        }
+
+        androidMain.dependencies {
+            implementation(libs.navigation)
+            implementation(libs.media3.session)
+            implementation(libs.media3.ui)
+            implementation(libs.kotlin.coroutines.guava)
+            implementation(libs.kotlin.concurrent.futures)
+            implementation(libs.androidx.webkit)
+            //implementation(libs.room.backup)
+            implementation(libs.workmanager)
+            implementation(libs.accompanist)
+
+            implementation(libs.compose.activity)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.ui)
+            implementation(libs.compose.ui.util)
+            implementation(libs.compose.ripple)
+            implementation(libs.compose.shimmer)
+            implementation(libs.compose.coil)
+            implementation(libs.palette)
+            implementation(libs.media3.exoplayer)
+            implementation(libs.media3.datasource.okhttp)
+            implementation(libs.appcompat)
+            implementation(libs.appcompat.resources)
+            implementation(libs.support)
+            implementation(libs.media)
+            implementation(libs.material)
+            implementation(libs.material3)
+            implementation(libs.compose.ui.graphics.android)
+            implementation(libs.constraintlayout)
+            implementation(libs.compose.runtime.livedata)
+            implementation(libs.compose.animation)
+            implementation(libs.kotlin.csv)
+            implementation(libs.monetcompat)
+            implementation(libs.androidmaterial)
+            implementation(libs.timber)
+            implementation(libs.crypto)
+            implementation(libs.logging.interceptor)
+            implementation(libs.math3)
+            implementation(libs.toasty)
+            implementation(libs.haze)
+            //implementation(libs.androidyoutubeplayer) // replaced by project ayp
+            //implementation(libs.androidyoutubeplayer.custom.ui) // replaced by project aypui
+            implementation(project(":ayp"))
+            implementation(project(":aypui"))
+            implementation(libs.glance.widgets)
+            implementation(libs.kizzy.rpc)
+            implementation(libs.gson)
+            implementation(libs.hypnoticcanvas)
+            implementation(libs.hypnoticcanvas.shaders)
+            implementation(libs.multidex)
+            implementation(libs.jsoup)
+            //implementation(libs.mediarouter)
+        }
+
+    }
+}
+
+
 room {
     schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {
 
-    listOf(
-        "kspAndroid",
-        "ksp",
-        //"kspIosSimulatorArm64",
-        //"kspIosX64",
-        //"kspIosArm64"
-    ).forEach {
-        add(it, libs.room.compiler)
-    }
+    "fullImplementation"(libs.media3.cast)
+    "fullImplementation"(project(":aypcast"))
 
     add("kspAndroid", libs.room.compiler)
-    add("ksp", libs.room.compiler)
+    add("kspDesktop", libs.room.compiler)
 
     coreLibraryDesugaring(libs.desugaring)
 }

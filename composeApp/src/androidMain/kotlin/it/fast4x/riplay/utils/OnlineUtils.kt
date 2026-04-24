@@ -10,14 +10,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -28,20 +23,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import it.fast4x.riplay.extensions.persist.persist
 import it.fast4x.environment.Environment
 import it.fast4x.environment.EnvironmentExt
 import it.fast4x.environment.models.VideoOrSongInfo
@@ -49,8 +41,6 @@ import it.fast4x.environment.models.bodies.BrowseBody
 import it.fast4x.environment.models.bodies.ContinuationBody
 import it.fast4x.environment.models.bodies.NextBody
 import it.fast4x.environment.models.bodies.SearchBody
-import it.fast4x.environment.requests.AlbumPage
-import it.fast4x.environment.requests.albumPage
 import it.fast4x.environment.requests.artistPage
 import it.fast4x.environment.requests.nextPage
 import it.fast4x.environment.requests.searchPage
@@ -62,15 +52,11 @@ import it.fast4x.riplay.R
 import it.fast4x.riplay.commonutils.MODIFIED_PREFIX
 import it.fast4x.riplay.enums.ContentType
 import it.fast4x.riplay.enums.PopupType
-import it.fast4x.riplay.enums.ThumbnailRoundness
-import it.fast4x.riplay.extensions.preferences.artistScreenTabIndexKey
-import it.fast4x.riplay.extensions.preferences.rememberPreference
-import it.fast4x.riplay.extensions.preferences.thumbnailRoundnessKey
 import it.fast4x.riplay.data.models.Album
 import it.fast4x.riplay.data.models.Artist
 import it.fast4x.riplay.data.models.SongAlbumMap
 import it.fast4x.riplay.data.models.defaultQueue
-import it.fast4x.riplay.service.PlayerService
+import it.fast4x.riplay.services.playback.PlayerService
 import it.fast4x.riplay.ui.components.LocalGlobalSheetState
 import it.fast4x.riplay.ui.components.SwipeablePlaylistItem
 import it.fast4x.riplay.ui.components.themed.Loader
@@ -80,37 +66,24 @@ import it.fast4x.riplay.ui.components.themed.NonQueuedMediaItemMenu
 import it.fast4x.riplay.ui.components.themed.SmartMessage
 import it.fast4x.riplay.ui.components.themed.Title
 import it.fast4x.riplay.ui.components.themed.Title2Actions
-import it.fast4x.riplay.ui.components.themed.TitleMiniSection
 import it.fast4x.riplay.ui.items.SongItem
 import it.fast4x.riplay.ui.items.VideoItem
 import it.fast4x.riplay.ui.items.VideoItemPlaceholder
 import it.fast4x.riplay.ui.screens.searchresult.ItemsPage
 import it.fast4x.riplay.ui.styling.Dimensions
-import it.fast4x.riplay.ui.styling.align
-import it.fast4x.riplay.ui.styling.color
 import it.fast4x.riplay.ui.styling.px
 import it.fast4x.riplay.ui.styling.secondary
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import kotlinx.serialization.ExperimentalSerializationApi
 
 @UnstableApi
 data class OnlineRadio (
@@ -150,6 +123,7 @@ data class OnlineRadio (
                 Environment.nextPage(ContinuationBody(continuation = continuation))
             }?.getOrNull()?.let { songsPage ->
                 mediaItems = songsPage.items?.map(Environment.SongItem::asMediaItem)
+                    ?.map { it.asRelated }
                 songsPage.continuation?.takeUnless { nextContinuation == it }
             }
 
@@ -210,6 +184,7 @@ data class OnlineRadio (
 @ExperimentalAnimationApi
 @ExperimentalTextApi
 @ExperimentalFoundationApi
+@ExperimentalSerializationApi
 @UnstableApi
 @Composable
 fun SearchOnlineEntity (
@@ -415,6 +390,7 @@ fun SearchOnlineEntity (
 
 
 
+@ExperimentalSerializationApi
 suspend fun updateOnlineArtist(browseId: String) {
 
     val currentArtist = Database.artist(browseId).first()
@@ -441,7 +417,7 @@ suspend fun updateOnlineArtist(browseId: String) {
     }
 }
 
-
+@ExperimentalSerializationApi
 @OptIn(UnstableApi::class)
 suspend fun updateOnlineAlbum(albumId: String) {
     val currentAlbum = Database.album(albumId).first()
@@ -489,16 +465,13 @@ suspend fun updateOnlineAlbum(albumId: String) {
 }
 
 
-
+@ExperimentalSerializationApi
 @UnstableApi
 @Composable
 fun ShowVideoOrSongInfo(
     videoId: String,
 ) {
     if (videoId.isBlank()) return
-
-    val thumbnailRoundness by rememberPreference(thumbnailRoundnessKey, ThumbnailRoundness.Heavy)
-    val windowInsets = WindowInsets.systemBars
 
     // Stato per gestire caricamento e dati
     var info by remember { mutableStateOf<VideoOrSongInfo?>(null) }
@@ -588,7 +561,7 @@ fun ShowVideoOrSongInfo(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = getRoundnessShape(),
                     colors = CardDefaults.cardColors(
                         containerColor = colorPalette().accent.copy(alpha = 0.2f)
                     )
@@ -694,205 +667,3 @@ private fun StatItem(
         )
     }
 }
-
-/*
-@UnstableApi
-@Composable
-fun ShowVideoOrSongInfo(
-    videoId: String,
-) {
-
-    if (videoId.isBlank()) return
-
-    val thumbnailRoundness by rememberPreference(thumbnailRoundnessKey, ThumbnailRoundness.Heavy)
-
-    val windowInsets = WindowInsets.systemBars
-
-    var info by remember {
-        mutableStateOf<VideoOrSongInfo?>(null)
-    }
-
-    LaunchedEffect(Unit, videoId) {
-        info = EnvironmentExt.getVideOrSongInfo(videoId).getOrNull()
-        Timber.d("ShowVideoOrSongInfo: ${info?.authorThumbnail}")
-    }
-
-    //if (info == null) return
-
-
-    LazyColumn(
-        state = rememberLazyListState(),
-        modifier = Modifier
-            .padding(
-                windowInsets
-                    .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-                    .asPaddingValues()
-            )
-            .background(colorPalette().background0)
-            .fillMaxSize()
-    ) {
-        item(contentType = "InfoTitlePage") {
-            Title(
-                title = stringResource(R.string.information),
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 24.dp, bottom = 8.dp),
-                icon = R.drawable.chevron_down,
-                onClick = {},
-                enableClick = true
-            )
-        }
-        if (info != null) {
-            item(contentType = "InfoTitle") {
-                Column(
-                    horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.Top,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .padding(top = 16.dp)
-                ) {
-                    TitleMiniSection(
-                        title = stringResource(R.string.title)
-                    )
-                    BasicText(
-                        text = "" + info?.title,
-                        style = typography().xs.color(colorPalette().text)
-                            .align(TextAlign.Start),
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .padding(bottom = 16.dp)
-                    )
-                }
-            }
-            item(contentType = "InfoAuthor") {
-                Column(
-                    horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.Top,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .padding(top = 16.dp)
-                ) {
-                    TitleMiniSection(
-                        title = stringResource(R.string.artists)
-                    )
-                    BasicText(
-                        text = "" + info?.author,
-                        style = typography().xs.color(colorPalette().text)
-                            .align(TextAlign.Start),
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .padding(bottom = 16.dp)
-                    )
-                }
-            }
-            item(contentType = "InfoDescription") {
-                Column(
-                    horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.Top,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(all = 16.dp)
-                ) {
-                    TitleMiniSection(
-                        title = stringResource(R.string.description)
-                    )
-                    BasicText(
-                        text = info?.description ?: "",
-                        style = typography().xs.color(colorPalette().text)
-                            .align(TextAlign.Start),
-                        modifier = Modifier
-                            .padding(all = 16.dp)
-                    )
-                }
-            }
-            item(contentType = "InfoNumbers") {
-                Column(
-                    horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.Top,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(all = 16.dp)
-                ) {
-                    TitleMiniSection(
-                        title = stringResource(R.string.numbers)
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                    ) {
-                        Column {
-                            BasicText(
-                                text = stringResource(R.string.subscribers),
-                                style = typography().xs.color(colorPalette().text)
-                                    .align(TextAlign.Start),
-                                modifier = Modifier
-                            )
-                            BasicText(
-                                text = info?.subscribers ?: "",
-                                style = typography().xs.color(colorPalette().text)
-                                    .align(TextAlign.Start),
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
-                        }
-                        Column {
-                            BasicText(
-                                text = stringResource(R.string.views),
-                                style = typography().xs.color(colorPalette().text)
-                                    .align(TextAlign.Start),
-                                modifier = Modifier
-                            )
-                            BasicText(
-                                text = "" + info?.viewCount?.toInt()
-                                    ?.let { numberFormatter(it) },
-                                style = typography().xs.color(colorPalette().text)
-                                    .align(TextAlign.Start),
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
-                        }
-                        Column {
-                            BasicText(
-                                text = stringResource(R.string.likes),
-                                style = typography().xs.color(colorPalette().text)
-                                    .align(TextAlign.Start),
-                                modifier = Modifier
-                            )
-                            BasicText(
-                                text = "" + info?.like?.toInt()?.let { numberFormatter(it) },
-                                style = typography().xs.color(colorPalette().text)
-                                    .align(TextAlign.Start),
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
-                        }
-                        Column {
-                            BasicText(
-                                text = stringResource(R.string.dislikes),
-                                style = typography().xs.color(colorPalette().text)
-                                    .align(TextAlign.Start),
-                                modifier = Modifier
-                            )
-                            BasicText(
-                                text = "" + info?.dislike?.toInt()?.let { numberFormatter(it) },
-                                style = typography().xs.color(colorPalette().text)
-                                    .align(TextAlign.Start),
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
-                        }
-
-                    }
-
-                }
-            }
-
-        } else {
-            item(contentType = "InfoLoader") {
-                Loader()
-            }
-        }
-    }
-
-}
-*/

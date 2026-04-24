@@ -10,7 +10,7 @@
 
 -keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
 
--keep class it.fast4x.riplay.service.** { *; }
+-keep class it.fast4x.riplay.services.** { *; }
 
 -if @kotlinx.serialization.Serializable class **
 -keepclassmembers class <1> {
@@ -137,3 +137,13 @@
 -dontwarn jdk.dynalink.linker.support.CompositeTypeBasedGuardingDynamicLinker
 -dontwarn jdk.dynalink.linker.support.Guards
 -dontwarn jdk.dynalink.support.ChainedCallSite
+
+#Required for Mozilla GeckoView
+-dontwarn java.beans.BeanInfo
+-dontwarn java.beans.FeatureDescriptor
+-dontwarn java.beans.IntrospectionException
+-dontwarn java.beans.Introspector
+-dontwarn java.beans.PropertyDescriptor
+
+-dontwarn org.osgi.service.component.annotations.Component
+-dontwarn org.osgi.service.metatype.annotations.Designate

@@ -12,7 +12,7 @@ import it.fast4x.riplay.commonutils.EXPLICIT_PREFIX
 import it.fast4x.riplay.data.Database
 import it.fast4x.riplay.data.models.Song
 import it.fast4x.riplay.data.models.SongEntity
-import it.fast4x.riplay.service.MediaInfo
+import it.fast4x.riplay.services.playback.MediaInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -22,6 +22,8 @@ val MediaItem.isVideo: Boolean
     get() = mediaMetadata.extras?.getBoolean("isVideo") == true
 val MediaItem.isPodcast: Boolean
     get() = mediaMetadata.extras?.getBoolean("isPodcast") == true
+val MediaItem.isRelated: Boolean
+    get() = mediaMetadata.extras?.getBoolean("isRelated") == true
 
 val MediaItem.isExplicit: Boolean
     get() {
@@ -176,3 +178,10 @@ val Song.asMediaInfo: MediaInfo
         get() = MediaInfo(
             mediaItem = this.asMediaItem
         )
+
+val MediaItem.asRelated: MediaItem
+    get() {
+        val mediaItem = this
+        mediaItem.mediaMetadata.extras?.putBoolean("isRelated", true)
+        return mediaItem
+    }

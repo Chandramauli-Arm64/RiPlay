@@ -71,10 +71,11 @@ import it.fast4x.riplay.extensions.preferences.playerInfoShowIconsKey
 import it.fast4x.riplay.extensions.preferences.rememberPreference
 import it.fast4x.riplay.extensions.preferences.showthumbnailKey
 import it.fast4x.riplay.extensions.preferences.textoutlineKey
-import it.fast4x.riplay.service.PlaybackState
-import it.fast4x.riplay.service.PlayerState
+import it.fast4x.riplay.services.playback.PlaybackState
+import it.fast4x.riplay.services.playback.PlayerState
 import it.fast4x.riplay.ui.components.themed.CustomElevatedButton
 import it.fast4x.riplay.ui.components.themed.IconButton
+import it.fast4x.riplay.ui.components.themed.PlayerCircularLoader
 import it.fast4x.riplay.ui.components.themed.SelectorArtistsDialog
 import it.fast4x.riplay.ui.components.themed.SmartMessage
 import it.fast4x.riplay.ui.screens.settings.isYtSyncEnabled
@@ -98,6 +99,7 @@ import it.fast4x.riplay.utils.typography
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.serialization.ExperimentalSerializationApi
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalFoundationApi::class)
@@ -210,10 +212,7 @@ fun UnifiedControlsModern(
                             .align(Alignment.Center)
                             .size(30.dp)
                     )
-                } else CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center).size(30.dp),
-                    color = colorPalette().collapsedPlayerProgressBar
-                )
+                } else PlayerCircularLoader(64.dp)
             }
         }
         else {
@@ -453,6 +452,7 @@ fun UnifiedControlsModern(
 }
 
 
+@OptIn(ExperimentalSerializationApi::class)
 @UnstableApi
 @ExperimentalFoundationApi
 @Composable

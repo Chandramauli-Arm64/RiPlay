@@ -104,8 +104,10 @@ import it.fast4x.riplay.utils.isNetworkConnected
 import it.fast4x.riplay.utils.getLikeState
 import it.fast4x.riplay.commonutils.setDisLikeState
 import it.fast4x.riplay.utils.removeFromOnlineLikedSong
+import kotlinx.serialization.ExperimentalSerializationApi
 
 @OptIn(UnstableApi::class)
+@ExperimentalSerializationApi
 @Composable
 fun NonQueuedMediaItemGridMenu(
     navController: NavController,
@@ -147,6 +149,7 @@ fun NonQueuedMediaItemGridMenu(
     )
 }
 
+@ExperimentalSerializationApi
 @Composable
 fun BaseMediaItemGridMenu(
     navController: NavController,
@@ -245,6 +248,7 @@ fun BaseMediaItemGridMenu(
     )
 }
 
+@ExperimentalSerializationApi
 @Composable
 fun MiniMediaItemGridMenu(
     navController: NavController,
@@ -292,6 +296,7 @@ fun MiniMediaItemGridMenu(
     )
 }
 
+@ExperimentalSerializationApi
 @kotlin.OptIn(ExperimentalTextApi::class)
 @OptIn(UnstableApi::class)
 @Composable

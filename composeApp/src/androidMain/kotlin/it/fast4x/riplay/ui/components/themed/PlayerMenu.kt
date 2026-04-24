@@ -31,7 +31,7 @@ import it.fast4x.riplay.utils.isNetworkConnected
 import it.fast4x.riplay.extensions.preferences.menuStyleKey
 import it.fast4x.riplay.extensions.equalizer.rememberSystemEqualizerLauncher
 import it.fast4x.riplay.extensions.preferences.rememberPreference
-import it.fast4x.riplay.service.PlayerService
+import it.fast4x.riplay.services.playback.PlayerService
 import it.fast4x.riplay.utils.asSong
 import it.fast4x.riplay.utils.insertOrUpdateBlacklist
 import it.fast4x.riplay.utils.removeYTSongFromPlaylist
@@ -39,8 +39,10 @@ import it.fast4x.riplay.utils.seamlessPlay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.serialization.ExperimentalSerializationApi
 import timber.log.Timber
 
+@ExperimentalSerializationApi
 @ExperimentalTextApi
 @ExperimentalAnimationApi
 @UnstableApi
@@ -62,15 +64,10 @@ fun PlayerMenu(
         MenuStyle.List
     )
 
-    //val context = LocalContext.current
 
     val launchEqualizer by rememberSystemEqualizerLauncher(audioSessionId = {
-        //binder.player.audioSessionId
         0
     })
-
-    val activityResultLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
 
     var isHiding by remember {
         mutableStateOf(false)
@@ -188,6 +185,7 @@ fun PlayerMenu(
 }
 
 
+@ExperimentalSerializationApi
 @ExperimentalTextApi
 @ExperimentalAnimationApi
 @UnstableApi
@@ -266,6 +264,7 @@ fun MiniPlayerMenu(
 
 }
 
+@ExperimentalSerializationApi
 @ExperimentalTextApi
 @ExperimentalAnimationApi
 @UnstableApi
@@ -326,6 +325,7 @@ fun AddToPlaylistPlayerMenu(
     )
 }
 
+@ExperimentalSerializationApi
 @ExperimentalTextApi
 @ExperimentalAnimationApi
 @UnstableApi

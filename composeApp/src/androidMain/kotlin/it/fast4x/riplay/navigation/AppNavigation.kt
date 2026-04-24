@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -49,7 +50,6 @@ import it.fast4x.riplay.enums.ThumbnailRoundness
 import it.fast4x.riplay.enums.TransitionEffect
 import it.fast4x.riplay.data.models.Mood
 import it.fast4x.riplay.data.models.SearchQuery
-import it.fast4x.riplay.extensions.ritune.improved.RiTuneControllerScreen
 import it.fast4x.riplay.ui.screens.blacklist.BlacklistScreen
 import it.fast4x.riplay.extensions.listenerlevel.ListenerLevelCharts
 import it.fast4x.riplay.ui.components.CustomModalBottomSheet
@@ -63,7 +63,6 @@ import it.fast4x.riplay.ui.screens.moodandchip.MoodListScreen
 import it.fast4x.riplay.ui.screens.moodandchip.MoodsPageScreen
 import it.fast4x.riplay.ui.screens.newreleases.NewreleasesScreen
 import it.fast4x.riplay.ui.screens.ondevice.OnDeviceArtistScreen
-import it.fast4x.riplay.ui.screens.player.local.LocalPlayer
 import it.fast4x.riplay.ui.screens.player.common.Queue
 import it.fast4x.riplay.ui.screens.playlist.PlaylistScreen
 import it.fast4x.riplay.ui.screens.podcast.PodcastScreen
@@ -78,6 +77,7 @@ import it.fast4x.riplay.extensions.preferences.homeScreenTabIndexKey
 import it.fast4x.riplay.extensions.preferences.pauseSearchHistoryKey
 import it.fast4x.riplay.extensions.preferences.preferences
 import it.fast4x.riplay.extensions.preferences.rememberPreference
+import it.fast4x.riplay.extensions.preferences.showOnBoardingScreenKey
 import it.fast4x.riplay.extensions.preferences.thumbnailRoundnessKey
 import it.fast4x.riplay.extensions.preferences.transitionEffectKey
 import it.fast4x.riplay.extensions.rewind.RewindListScreen
@@ -87,11 +87,12 @@ import it.fast4x.riplay.ui.screens.moodandchip.ChipListScreen
 import it.fast4x.riplay.ui.screens.onboarding.OnboardingScreen
 import it.fast4x.riplay.ui.screens.ondevice.OnDevicePlaylistScreen
 import it.fast4x.riplay.utils.MusicIdentifier
+import kotlinx.serialization.ExperimentalSerializationApi
 import java.net.URLEncoder
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalAnimationApi::class,
     ExperimentalMaterialApi::class, ExperimentalTextApi::class, ExperimentalComposeUiApi::class,
-    ExperimentalMaterial3Api::class
+    ExperimentalMaterial3Api::class, ExperimentalSerializationApi::class
 )
 @UnstableApi
 @KotlinCsvExperimental
@@ -114,7 +115,7 @@ fun AppNavigation(
 
         val thumbnailRoundness by rememberPreference(
             thumbnailRoundnessKey,
-            ThumbnailRoundness.Heavy
+            ThumbnailRoundness.Light
         )
 
         CustomModalBottomSheet(
@@ -141,9 +142,12 @@ fun AppNavigation(
     val context = LocalContext.current
     clearPreference(context, homeScreenTabIndexKey)
 
+    var showOnBoardingScreen by rememberPreference(showOnBoardingScreenKey, true)
+
+
     NavHost(
         navController = navController,
-        startDestination = NavRoutes.home.name,
+        startDestination = if (showOnBoardingScreen) NavRoutes.onBoarding.name else NavRoutes.home.name,
         enterTransition = {
             when (transitionEffect) {
                 TransitionEffect.None -> EnterTransition.None
@@ -205,14 +209,9 @@ fun AppNavigation(
         }
 
         composable(route = NavRoutes.onBoarding.name) {
-            OnboardingScreen(){
-                SmartMessage("Permissions completed", context = context)
-            }
-        }
-
-        composable(route = NavRoutes.ritunecontroller.name) {
-            modalBottomSheetPage {
-                RiTuneControllerScreen()
+            OnboardingScreen{
+                showOnBoardingScreen = false
+                navController.navigate(route = NavRoutes.home.name)
             }
         }
 
@@ -271,15 +270,6 @@ fun AppNavigation(
                         navController.popBackStack()
                     },
                     onDiscoverClick = {}
-                )
-            }
-        }
-
-        composable(route = NavRoutes.player.name) {
-            modalBottomSheetPage {
-                LocalPlayer(
-                    navController = navController,
-                    onDismiss = {}
                 )
             }
         }

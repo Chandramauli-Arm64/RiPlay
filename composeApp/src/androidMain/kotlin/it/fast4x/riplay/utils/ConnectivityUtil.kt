@@ -7,7 +7,9 @@ import io.ktor.client.HttpClient
 import io.ktor.client.plugins.UserAgent
 import it.fast4x.environment.utils.ProxyPreferences
 import it.fast4x.environment.utils.getProxy
+import it.fast4x.riplay.config.EnvironmentConfig
 import it.fast4x.riplay.enums.NetworkType
+import okhttp3.OkHttpClient
 
 
 fun getNetworkType(context: Context): NetworkType {
@@ -65,14 +67,33 @@ fun isNetworkConnected(context: Context): Boolean {
     }
 }
 
-fun httpClient() = HttpClient() {
-    install(UserAgent) {
-        agent = "Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0"
-    }
-    engine {
-        ProxyPreferences.preference?.let {
-            proxy = getProxy(it)
-        }
 
+object CustomHttpClient {
+    private val _proxy = ProxyPreferences.preference?.let { getProxy(it) }
+
+    val okHttpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .proxy(_proxy)
+            .build()
+    }
+
+    val httpClient: HttpClient by lazy {
+        HttpClient() {
+            install(UserAgent) {
+                agent = EnvironmentConfig.env_WkUFhXtC3G
+            }
+            engine {
+                proxy?.let { _proxy }
+            }
+        }
     }
 }
+
+//fun okHttpClient() : OkHttpClient =
+//    ProxyPreferences.preference?.let{
+//        OkHttpClient.Builder()
+//            .proxy(
+//                getProxy(it)
+//            )
+//            .build()
+//    } ?: OkHttpClient.Builder().build()

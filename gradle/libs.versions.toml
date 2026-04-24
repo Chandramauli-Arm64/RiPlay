@@ -26,7 +26,7 @@ materialdesktop = "1.7.3"
 material3 = "1.5.0-alpha13"
 androidmaterial = "1.13.0"
 constraintlayout = "1.1.1"
-translator = "1.1.1"
+translator = "1.1.2"
 kotlin-csv = "1.10.0"
 monetcompat = "0.4.1"
 navigation = "2.9.5"
@@ -53,10 +53,10 @@ fastscroller = "0.3.2"
 workmanager = "2.10.5"
 accompanist = "0.37.3"
 jsoup = "1.15.3"
-newpipeExt = "c1336db"
+newpipeExt = "v0.26.0"
 webkit = "1.15.0"
 recyclerview = "1.4.0"
-
+geckoview = "136.0.20250317200840" # Compatible with sdk 24
 
 
 [libraries]
@@ -81,6 +81,7 @@ media3-exoplayer = {group = "androidx.media3", name = "media3-exoplayer", versio
 media3-session = {group = "androidx.media3", name = "media3-session", version.ref = "media3"}
 media3-datasource-okhttp = {group = "androidx.media3", name = "media3-datasource-okhttp", version.ref = "media3"}
 media3-ui = {group = "androidx.media3", name = "media3-ui", version.ref = "media3"}
+media3-cast = {group = "androidx.media3", name = "media3-cast", version.ref = "media3"}
 ktor-client-core = {group = "io.ktor", name = "ktor-client-core", version.ref = "ktor"}
 ktor-client-okhttp = {group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor"}
 ktor-client-websockets = { group = "io.ktor", name = "ktor-client-websockets", version.ref = "ktor"}
@@ -103,7 +104,8 @@ material-icon-desktop = {group = "org.jetbrains.compose.material", name = "mater
 material3 = {group = "androidx.compose.material3", name = "material3-android", version.ref = "material3"}
 androidmaterial = {group = "com.google.android.material", name = "material", version.ref = "androidmaterial"}
 constraintlayout = {group = "androidx.constraintlayout", name = "constraintlayout-compose", version.ref = "constraintlayout"}
-translator = { group = "com.github.therealbush", name = "translator", version.ref = "translator"}
+#translator = { group = "com.github.therealbush", name = "translator", version.ref = "translator"}
+translator = { group = "com.github.rebelonion", name = "translator", version.ref = "translator"}
 kotlin-csv = { group = "com.github.doyaaaaaken", name = "kotlin-csv-jvm", version.ref = "kotlin-csv"}
 monetcompat = { group = "com.github.KieronQuinn", name = "MonetCompat", version.ref = "monetcompat"}
 navigation = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation"}
@@ -113,8 +115,8 @@ logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", ver
 math3 = {group = "org.apache.commons", name = "commons-math3", version.ref = "math3"}
 toasty = {group = "com.github.GrenderG", name = "Toasty", version.ref = "toasty"}
 haze = {group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze"}
-androidyoutubeplayer = {group = "com.pierfrancescosoffritti.androidyoutubeplayer", name = "core", version.ref = "androidyoutubeplayer"}
-androidyoutubeplayer-custom-ui = {group = "com.pierfrancescosoffritti.androidyoutubeplayer", name = "custom-ui", version.ref = "androidyoutubeplayer"}
+#androidyoutubeplayer = {group = "com.pierfrancescosoffritti.androidyoutubeplayer", name = "core", version.ref = "androidyoutubeplayer"}
+#androidyoutubeplayer-custom-ui = {group = "com.pierfrancescosoffritti.androidyoutubeplayer", name = "custom-ui", version.ref = "androidyoutubeplayer"}
 glance-widgets = {group = "androidx.glance", name = "glance-appwidget", version.ref = "glance"}
 kizzy-rpc = {group = "com.github.dead8309", name = "KizzyRPC", version.ref = "kizzyrpc"}
 gson = {group = "com.google.code.gson", name = "gson", version.ref = "gson"}
@@ -142,6 +144,8 @@ jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup"}
 newpipeExt = { module = "com.github.TeamNewPipe:NewPipeExtractor", version.ref = "newpipeExt" }
 recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
 
+#mediarouter = { group = "androidx.mediarouter", name = "mediarouter", version.ref = "mediarouter" }
+#geckoView = { group = "org.mozilla.geckoview", name = "geckoview", version.ref = "geckoview" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

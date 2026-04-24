@@ -202,8 +202,10 @@ import kotlinx.coroutines.delay
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import it.fast4x.riplay.extensions.persist.persistList
+import kotlinx.serialization.ExperimentalSerializationApi
 import timber.log.Timber
 
+@ExperimentalSerializationApi
 @KotlinCsvExperimental
 @ExperimentalMaterialApi
 @ExperimentalTextApi
@@ -227,8 +229,6 @@ fun LocalPlaylistSongs(
 
     var playlistAllSongs by persistList<SongEntity>("localPlaylist/$playlistId/songs")
     var songsInTheToPlaylist by persistList<SongEntity>("")
-    var downloadedPlaylistSongs by persistList<SongEntity>("localPlaylist/$playlistId/songs")
-    var cachedPlaylistSongs by persistList<SongEntity>("localPlaylist/$playlistId/songs")
     var playlistSongs by persistList<SongEntity>("localPlaylist/$playlistId/songs")
     var playlistSongsSortByPosition by persistList<SongEntity>("localPlaylist/$playlistId/songs")
     var playlistPreview by persist<PlaylistPreview?>("localPlaylist/playlist")
@@ -380,7 +380,7 @@ fun LocalPlaylistSongs(
 
     val thumbnailRoundness by rememberPreference(
         thumbnailRoundnessKey,
-        ThumbnailRoundness.Heavy
+        ThumbnailRoundness.Light
     )
 
     val sortOrderIconRotation by animateFloatAsState(

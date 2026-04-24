@@ -124,7 +124,9 @@ import it.fast4x.riplay.utils.updateOnlineAlbum
 import it.fast4x.riplay.utils.updateOnlineArtist
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
 
+@ExperimentalSerializationApi
 @OptIn(ExperimentalAnimationApi::class, ExperimentalTextApi::class)
 @UnstableApi
 @Composable
@@ -149,7 +151,7 @@ fun StatisticsPage(
     val playlistThumbnailSizePx = playlistThumbnailSizeDp.px
 
 
-    val thumbnailRoundness by rememberPreference(thumbnailRoundnessKey, ThumbnailRoundness.Heavy)
+    val thumbnailRoundness by rememberPreference(thumbnailRoundnessKey, ThumbnailRoundness.Light)
     val showStatsListeningTime by rememberPreference(showStatsListeningTimeKey, true)
     val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
     val navigationBarPosition by rememberPreference(navigationBarPositionKey, NavigationBarPosition.Bottom)

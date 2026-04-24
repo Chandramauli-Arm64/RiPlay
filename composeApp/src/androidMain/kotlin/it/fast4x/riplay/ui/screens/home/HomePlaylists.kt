@@ -37,7 +37,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -76,7 +75,6 @@ import it.fast4x.riplay.commonutils.MONTHLY_PREFIX
 import it.fast4x.riplay.commonutils.PINNED_PREFIX
 import it.fast4x.riplay.R
 import it.fast4x.riplay.commonutils.YTP_PREFIX
-import it.fast4x.riplay.commonutils.cleanPrefix
 import it.fast4x.riplay.commonutils.thumbnail
 import it.fast4x.riplay.utils.appContext
 import it.fast4x.riplay.enums.NavigationBarPosition
@@ -141,6 +139,7 @@ import it.fast4x.riplay.utils.LazyListContainer
 import it.fast4x.riplay.utils.addNext
 import it.fast4x.riplay.utils.cleanOnDeviceName
 import it.fast4x.riplay.utils.forcePlayFromBeginning
+import it.fast4x.riplay.utils.getRoundnessShape
 import it.fast4x.riplay.utils.insertOrUpdateBlacklist
 import it.fast4x.riplay.utils.typography
 import it.fast4x.riplay.utils.viewTypeToolbutton
@@ -152,11 +151,12 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.collections.map
 
-
+@ExperimentalSerializationApi
 @OptIn(ExperimentalTextApi::class)
 @ExperimentalMaterial3Api
 @UnstableApi
@@ -467,7 +467,7 @@ fun HomePlaylists(
                         modifier = Modifier
                             // Animazione della larghezza quando si espande/contrae
                             .animateContentSize(animationSpec = tween(durationMillis = 300))
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(getRoundnessShape())
                             .background(colorPalette().background1.copy(alpha = 0.5f))
                             .clickable {
                                 // Se è espanso -> Apre il menu ordinamento
@@ -553,7 +553,7 @@ fun HomePlaylists(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = stringResource(R.string.no_plaulists), // Assicurati di avere questa stringa o usa un placeholder
+                                text = stringResource(R.string.no_playlists), // Assicurati di avere questa stringa o usa un placeholder
                                 style = typography().m,
                                 color = colorPalette().textSecondary
                             )

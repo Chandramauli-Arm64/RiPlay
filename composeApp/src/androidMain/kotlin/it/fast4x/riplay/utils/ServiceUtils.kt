@@ -14,13 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat.startForegroundService
 import androidx.media3.common.util.UnstableApi
-import it.fast4x.riplay.LocalPlayerServiceBinder
 import it.fast4x.riplay.R
 import it.fast4x.riplay.extensions.preferences.rememberPreference
 import it.fast4x.riplay.extensions.preferences.restartActivityKey
-import it.fast4x.riplay.service.PlayerService
+import it.fast4x.riplay.services.playback.PlayerService
 import it.fast4x.riplay.ui.components.themed.SecondaryTextButton
 import it.fast4x.riplay.ui.components.themed.SmartMessage
 import it.fast4x.riplay.ui.screens.settings.SettingsDescription
@@ -73,19 +71,20 @@ fun RestartActivity(
     restart: Boolean = false,
     onRestart: () -> Unit
 ) {
-    var restartActivity by rememberPreference(restartActivityKey, false)
+    //var restartActivity by rememberPreference(restartActivityKey, false)
     val context = LocalContext.current
     AnimatedVisibility(visible = restart) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             SettingsDescription(
-                text = stringResource(R.string.minimum_silence_length_warning),
+                text = stringResource(R.string.app_must_be_restarted_to_apply_changes),
                 important = true,
                 modifier = Modifier.weight(2f)
             )
             SecondaryTextButton(
-                text = stringResource(R.string.restart_service),
+                text = stringResource(R.string.restart_app_please),
                 onClick = {
-                    restartActivity = !restartActivity
+                    //restartActivity = !restartActivity
+                    restartApp(context)
                     onRestart()
                     SmartMessage(context.resources.getString(R.string.done), context = context )
                 },
@@ -97,10 +96,18 @@ fun RestartActivity(
     }
 }
 
+//fun restartApp(context: Context) {
+//    val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+//    intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+//    context.startActivity(intent)
+//    Runtime.getRuntime().exit(0)
+//}
+
 fun restartApp(context: Context) {
-    val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-    intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-    context.startActivity(intent)
+    val packageManager = context.packageManager
+    val launchIntent = packageManager.getLaunchIntentForPackage(context.packageName)
+    val restartIntent = Intent.makeRestartActivityTask(launchIntent?.component)
+    context.startActivity(restartIntent)
     Runtime.getRuntime().exit(0)
 }
 

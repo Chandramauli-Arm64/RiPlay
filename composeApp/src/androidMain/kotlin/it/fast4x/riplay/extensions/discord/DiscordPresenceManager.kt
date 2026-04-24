@@ -2,7 +2,6 @@ package it.fast4x.riplay.extensions.discord
 
 import android.content.Context
 import android.net.Uri
-import androidx.compose.runtime.MutableState
 import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
@@ -12,7 +11,6 @@ import com.my.kizzyrpc.model.Activity
 import com.my.kizzyrpc.model.Assets
 import com.my.kizzyrpc.model.Metadata
 import com.my.kizzyrpc.model.Timestamps
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
 import io.ktor.client.call.body
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
@@ -30,7 +28,7 @@ import it.fast4x.riplay.extensions.preferences.preferences
 import it.fast4x.riplay.utils.isLocal
 import it.fast4x.riplay.ui.components.themed.SmartMessage
 import it.fast4x.riplay.extensions.encryptedpreferences.encryptedPreferences
-import it.fast4x.riplay.service.PlayerService
+import it.fast4x.riplay.services.playback.PlayerService
 import it.fast4x.riplay.utils.SecureConfig
 import it.fast4x.riplay.utils.appContext
 import it.fast4x.riplay.utils.isAtLeastAndroid8

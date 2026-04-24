@@ -59,10 +59,12 @@ import it.fast4x.riplay.ui.styling.semiBold
 import it.fast4x.riplay.utils.colorPalette
 import it.fast4x.riplay.utils.typography
 import it.fast4x.riplay.utils.LazyListContainer
+import kotlinx.serialization.ExperimentalSerializationApi
 import timber.log.Timber
 
 internal const val defaultBrowseId = "FEmusic_moods_and_genres_category"
 
+@ExperimentalSerializationApi
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
 @Composable
@@ -218,27 +220,29 @@ fun MoodList(
 
                 }
             }
-        } ?: moodPage?.exceptionOrNull()?.let {
-            BasicText(
-                text = stringResource(R.string.page_not_been_loaded),
-                style = typography().s.secondary.center,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(all = 16.dp)
-            )
-        } ?: ShimmerHost {
-            HeaderPlaceholder(modifier = Modifier.shimmer())
-            repeat(4) {
-                TextPlaceholder(modifier = sectionTextModifier)
-                Row {
-                    repeat(6) {
-                        AlbumItemPlaceholder(
-                            thumbnailSizeDp = thumbnailSizeDp,
-                            alternative = true
-                        )
-                    }
-                }
-            }
-        }
+        } ?: LoaderScreen(true)
+//            ?: moodPage?.exceptionOrNull()?.let {
+//            BasicText(
+//                text = stringResource(R.string.page_not_been_loaded),
+//                style = typography().s.secondary.center,
+//                modifier = Modifier
+//                    .align(Alignment.CenterHorizontally)
+//                    .padding(all = 16.dp)
+//            )
+//        }
+//        ?: ShimmerHost {
+//            HeaderPlaceholder(modifier = Modifier.shimmer())
+//            repeat(4) {
+//                TextPlaceholder(modifier = sectionTextModifier)
+//                Row {
+//                    repeat(6) {
+//                        AlbumItemPlaceholder(
+//                            thumbnailSizeDp = thumbnailSizeDp,
+//                            alternative = true
+//                        )
+//                    }
+//                }
+//            }
+//        }
     }
 }

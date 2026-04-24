@@ -1,5 +1,6 @@
 package it.fast4x.riplay.ui.screens.player.unified
 
+import androidx.annotation.OptIn
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloatAsState
@@ -24,7 +25,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import it.fast4x.riplay.LocalPlayerServiceBinder
@@ -79,15 +80,15 @@ import it.fast4x.riplay.extensions.preferences.disableScrollingTextKey
 import it.fast4x.riplay.extensions.preferences.effectRotationKey
 import it.fast4x.riplay.extensions.preferences.miniPlayerTypeKey
 import it.fast4x.riplay.extensions.preferences.rememberPreference
-import it.fast4x.riplay.extensions.ritune.improved.models.RiTuneRemoteCommand
-import it.fast4x.riplay.service.PlaybackState
-import it.fast4x.riplay.service.PlayerService
+import it.fast4x.riplay.cast.ritune.models.RiTuneRemoteCommand
+import it.fast4x.riplay.services.playback.PlaybackState
+import it.fast4x.riplay.services.playback.PlayerService
 import it.fast4x.riplay.ui.components.themed.IconButton
 import it.fast4x.riplay.ui.components.themed.NowPlayingSongIndicator
+import it.fast4x.riplay.ui.components.themed.PlayerCircularLoader
 import it.fast4x.riplay.ui.components.themed.SmartMessage
 import it.fast4x.riplay.ui.screens.settings.isYtSyncEnabled
 import it.fast4x.riplay.ui.styling.Dimensions
-import it.fast4x.riplay.ui.styling.collapsedPlayerProgressBar
 import it.fast4x.riplay.ui.styling.favoritesIcon
 import it.fast4x.riplay.ui.styling.favoritesOverlay
 import it.fast4x.riplay.ui.styling.px
@@ -101,8 +102,10 @@ import it.fast4x.riplay.utils.appContext
 import it.fast4x.riplay.utils.applyIf
 import it.fast4x.riplay.utils.colorPalette
 import it.fast4x.riplay.utils.getLikeState
+import it.fast4x.riplay.utils.getRoundnessShape
 import it.fast4x.riplay.utils.intent
 import it.fast4x.riplay.utils.isExplicit
+import it.fast4x.riplay.utils.isLocal
 import it.fast4x.riplay.utils.isNetworkConnected
 import it.fast4x.riplay.utils.mediaItemToggleLike
 import it.fast4x.riplay.utils.playNext
@@ -114,8 +117,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlin.math.absoluteValue
 
+@OptIn(UnstableApi::class)
+@ExperimentalSerializationApi
 @Composable
 fun UnifiedMiniPlayer(
     showPlayer: () -> Unit,
@@ -248,11 +254,10 @@ fun UnifiedMiniPlayer(
 
     val colorPalette = colorPalette()
 
-
     SwipeToDismissBox(
         modifier = Modifier
             .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(12.dp)),
+            .clip(getRoundnessShape()),
         state = dismissState,
         backgroundContent = {
             Row(
@@ -309,7 +314,7 @@ fun UnifiedMiniPlayer(
                                         binder.onlinePlayer?.pause()
                                     else
                                         CoroutineScope(Dispatchers.IO).launch {
-                                            binder.riTuneClient.sendCommand(
+                                            binder.riTuneCastClient.sendCommand(
                                                 RiTuneRemoteCommand(
                                                     "play"
                                                 )
@@ -437,27 +442,35 @@ fun UnifiedMiniPlayer(
                             .clip(RoundedCornerShape(playPauseRoundness))
                             .clickable {
                                 if (shouldBePlaying) {
-                                    if (!GlobalSharedData.riTuneCastActive)
-                                        binder.onlinePlayer?.pause()
-                                    else
-                                        CoroutineScope(Dispatchers.IO).launch {
-                                            binder.riTuneClient.sendCommand(
-                                                RiTuneRemoteCommand(
-                                                    "pause"
+                                    if (mediaItem.isLocal) {
+                                        binder.player.pause()
+                                    } else {
+                                        if (!GlobalSharedData.riTuneCastActive)
+                                            binder.onlinePlayer?.pause()
+                                        else
+                                            CoroutineScope(Dispatchers.IO).launch {
+                                                binder.riTuneCastClient.sendCommand(
+                                                    RiTuneRemoteCommand(
+                                                        "pause"
+                                                    )
                                                 )
-                                            )
-                                        }
+                                            }
+                                    }
                                 } else {
-                                    if (!GlobalSharedData.riTuneCastActive)
-                                        binder.onlinePlayer?.play()
-                                    else
-                                        CoroutineScope(Dispatchers.IO).launch {
-                                            binder.riTuneClient.sendCommand(
-                                                RiTuneRemoteCommand(
-                                                    "play"
+                                    if (mediaItem.isLocal) {
+                                        binder.player.play()
+                                    } else {
+                                        if (!GlobalSharedData.riTuneCastActive)
+                                            binder.onlinePlayer?.play()
+                                        else
+                                            CoroutineScope(Dispatchers.IO).launch {
+                                                binder.riTuneCastClient.sendCommand(
+                                                    RiTuneRemoteCommand(
+                                                        "play", mediaId = mediaItem.mediaId
+                                                    )
                                                 )
-                                            )
-                                        }
+                                            }
+                                    }
                                 }
                                 if (effectRotationEnabled) isRotated = !isRotated
                             }
@@ -474,10 +487,8 @@ fun UnifiedMiniPlayer(
                                 .size(24.dp)
                         )
                     }
-                } else CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = colorPalette().collapsedPlayerProgressBar
-                )
+                } else
+                    PlayerCircularLoader(42.dp)
 
                 if (miniPlayerType == MiniPlayerType.Essential)
                     IconButton(

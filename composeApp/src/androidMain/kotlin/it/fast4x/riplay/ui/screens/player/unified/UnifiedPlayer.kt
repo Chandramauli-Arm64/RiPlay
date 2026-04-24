@@ -8,7 +8,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -269,7 +268,7 @@ import it.fast4x.riplay.extensions.preferences.titleExpandedKey
 import it.fast4x.riplay.extensions.preferences.topPaddingKey
 import it.fast4x.riplay.extensions.preferences.transparentBackgroundPlayerActionBarKey
 import it.fast4x.riplay.extensions.preferences.visualizerEnabledKey
-import it.fast4x.riplay.service.PlaybackState
+import it.fast4x.riplay.cast.ritune.models.RiTuneRemoteCommand
 import it.fast4x.riplay.ui.components.BottomSheetState
 import it.fast4x.riplay.ui.components.CustomModalBottomSheet
 import it.fast4x.riplay.ui.components.DelayedControls
@@ -304,6 +303,7 @@ import it.fast4x.riplay.ui.styling.px
 import it.fast4x.riplay.ui.styling.semiBold
 import it.fast4x.riplay.utils.BlurTransformation
 import it.fast4x.riplay.utils.DisposableListener
+import it.fast4x.riplay.utils.GlobalSharedData
 import it.fast4x.riplay.utils.LandscapeToSquareTransformation
 import it.fast4x.riplay.utils.PlayerViewModel
 import it.fast4x.riplay.utils.PlayerViewModelFactory
@@ -336,6 +336,7 @@ import it.fast4x.riplay.utils.mediaItems
 import it.fast4x.riplay.utils.playAtIndex
 import it.fast4x.riplay.utils.playNext
 import it.fast4x.riplay.utils.playPrevious
+import it.fast4x.riplay.utils.rememberSavableAnimatable
 import it.fast4x.riplay.utils.removeFromOnlineLikedSong
 import it.fast4x.riplay.utils.saturate
 import it.fast4x.riplay.utils.seamlessPlay
@@ -351,11 +352,13 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
 import timber.log.Timber
 import kotlin.Float.Companion.POSITIVE_INFINITY
 import kotlin.math.absoluteValue
 import kotlin.math.sqrt
 
+@ExperimentalSerializationApi
 @ExperimentalPermissionsApi
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @ExperimentalTextApi
@@ -401,7 +404,7 @@ fun UnifiedPlayer(
     if (binder.player.currentTimeline.windowCount == 0) return
 
     val playerState = LocalPlayerServiceState.current
-    val shouldBePlaying = playerState.playbackState == PlaybackState.PLAYING
+    //val shouldBePlaying = playerState.playbackState == PlaybackState.PLAYING
 
     var nullableMediaItem by remember {
         mutableStateOf(binder.player.currentMediaItem, neverEqualPolicy())
@@ -570,17 +573,6 @@ fun UnifiedPlayer(
             positionAndDuration.second.toInt() - positionAndDuration.first.toInt()
         }
     }
-
-    if (sleepTimerMillisLeft != null)
-        if ((sleepTimerMillisLeft ?: 0) < timeRemaining.toLong() && !delayedSleepTimer) {
-            binder.cancelSleepTimer()
-            binder.startSleepTimer(timeRemaining.toLong())
-            delayedSleepTimer = true
-            SmartMessage(
-                stringResource(R.string.info_sleep_timer_delayed_at_end_of_song),
-                context = context
-            )
-        }
 
     val windowInsets = WindowInsets.systemBars
 
@@ -1160,7 +1152,7 @@ fun UnifiedPlayer(
                             sizeShader = Size(it.width.toFloat(), it.height.toFloat())
                         }
                         .animatedGradient(
-                            binder.player.isPlaying,
+                            playerState.isPlaying,
                             saturate(dominant).darkenBy(),
                             saturate(vibrant).darkenBy(),
                             saturate(lightVibrant).darkenBy(),
@@ -1305,6 +1297,8 @@ fun UnifiedPlayer(
 
     val isLandscape = isLandscape
 
+    val riTuneClient = binder.riTuneCastClient
+
     LaunchedEffect(mediaItem) {
 
         // Ensure that the song is in database
@@ -1327,7 +1321,7 @@ fun UnifiedPlayer(
 
     val thumbnailRoundness by rememberObservedPreference(
         thumbnailRoundnessKey,
-        ThumbnailRoundness.Heavy
+        ThumbnailRoundness.Light
     )
 
     val controlsContent: @Composable (
@@ -1350,22 +1344,43 @@ fun UnifiedPlayer(
             onBlurScaleChange = { blurStrength = it },
             isExplicit = mediaItem.isExplicit,
             onPlay = {
-                if (binder.player.currentMediaItem?.isLocal == true)
-                    binder.player.play()
-                else
-                    binder.onlinePlayer?.play()
+                if (!GlobalSharedData.riTuneCastActive) {
+                    if (binder.player.currentMediaItem?.isLocal == true)
+                        binder.player.play()
+                    else
+                        binder.onlinePlayer?.play()
+                } else
+                    CoroutineScope(Dispatchers.IO).launch {
+                        riTuneClient.sendCommand(
+                            RiTuneRemoteCommand("play", mediaId = mediaItem.mediaId)
+                        )
+                    }
             },
             onPause = {
-                if (binder.player.currentMediaItem?.isLocal == true)
-                    binder.player.pause()
-                else
-                    binder.onlinePlayer?.pause()
+                if (!GlobalSharedData.riTuneCastActive) {
+                    if (binder.player.currentMediaItem?.isLocal == true)
+                        binder.player.pause()
+                    else
+                        binder.onlinePlayer?.pause()
+                } else
+                    CoroutineScope(Dispatchers.IO).launch {
+                        riTuneClient.sendCommand(
+                            RiTuneRemoteCommand("pause")
+                        )
+                    }
             },
             onSeekTo = {
-                if (binder.player.currentMediaItem?.isLocal == true)
-                    binder.player.seekTo(it.toLong())
-                else
-                    binder.onlinePlayer?.seekTo(it.div(1000))
+                if (!GlobalSharedData.riTuneCastActive) {
+                    if (binder.player.currentMediaItem?.isLocal == true)
+                        binder.player.seekTo(it.toLong())
+                    else
+                        binder.onlinePlayer?.seekTo(it.div(1000))
+                } else
+                    CoroutineScope(Dispatchers.IO).launch {
+                        riTuneClient.sendCommand(
+                            RiTuneRemoteCommand("seek", position = it.div(1000))
+                        )
+                    }
             },
             onNext = { binder.player.playNext() },
             onPrevious = {
@@ -1659,6 +1674,8 @@ fun UnifiedPlayer(
                                         flingBehavior = fling,
                                         modifier = Modifier.weight(1f)
                                     ) { index ->
+                                        if (!(index < binder.player.mediaItemCount && index >= 0)) return@HorizontalPager
+
                                         Row(
                                             horizontalArrangement = Arrangement.Center,
                                             modifier = Modifier
@@ -1667,7 +1684,7 @@ fun UnifiedPlayer(
                                                         binder.player.playAtIndex(index)
                                                     },
                                                     onLongClick = {
-                                                        if (index < mediaItems.size) {
+                                                        if (index < mediaItems.size && index >= 0) {
                                                             binder.player.addNext(
                                                                 binder.player.getMediaItemAt(index),
                                                                 queue = selectedQueue ?: defaultQueue()
@@ -2144,7 +2161,7 @@ fun UnifiedPlayer(
                 }
         }
 
-        val binderPlayer = binder.player ?: return
+        //val binderPlayer = binder.player
         val clickLyricsText by rememberObservedPreference(clickOnLyricsTextKey, true)
         var extraspace by rememberObservedPreference(extraspaceKey, false)
 
@@ -2230,18 +2247,17 @@ fun UnifiedPlayer(
                             flingBehavior = fling,
                             userScrollEnabled = !((albumCoverRotation || (animatedGradient == AnimatedGradient.Random && tempGradient == gradients[14])) && (isShowingLyrics || showthumbnail)),
                             modifier = Modifier
-                        ) { it ->
+                        ) { index ->
+                            if (!(index < binder.player.mediaItemCount && index >= 0)) return@HorizontalPager
 
                             var currentRotation by rememberSaveable {
                                 mutableFloatStateOf(0f)
                             }
 
-                            val rotation = remember {
-                                Animatable(currentRotation)
-                            }
+                            val rotation = rememberSavableAnimatable(currentRotation)
 
-                            LaunchedEffect(binderPlayer.isPlaying, pagerStateFS.settledPage) {
-                                if (binderPlayer.isPlaying && it == pagerStateFS.settledPage) {
+                            LaunchedEffect(playerState.isPlaying, pagerStateFS.settledPage) {
+                                if (playerState.isPlaying && index == pagerStateFS.settledPage) {
                                     rotation.animateTo(
                                         targetValue = currentRotation + 360f,
                                         animationSpec = infiniteRepeatable(
@@ -2252,7 +2268,7 @@ fun UnifiedPlayer(
                                         currentRotation = value
                                     }
                                 } else {
-                                    if (currentRotation > 0f && it == pagerStateFS.settledPage) {
+                                    if (currentRotation > 0f && index == pagerStateFS.settledPage) {
                                         rotation.animateTo(
                                             targetValue = currentRotation + 10,
                                             animationSpec = tween(
@@ -2269,7 +2285,7 @@ fun UnifiedPlayer(
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
                                     .data(
-                                        binder.player.getMediaItemAt(it).mediaMetadata.artworkUri.toString().thumbnail(
+                                        binder.player.getMediaItemAt(index).mediaMetadata.artworkUri.toString().thumbnail(
                                             1200
                                         )
                                     )
@@ -2297,7 +2313,7 @@ fun UnifiedPlayer(
                                 contentScale = if ((albumCoverRotation || (animatedGradient == AnimatedGradient.Random && tempGradient == gradients[14])) && (isShowingLyrics || showthumbnail)) ContentScale.Fit else ContentScale.Crop,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .zIndex(if (it == pagerStateFS.currentPage) 1f else 0.9f)
+                                    .zIndex(if (index == pagerStateFS.currentPage) 1f else 0.9f)
                                     .conditional(albumCoverRotation || (animatedGradient == AnimatedGradient.Random && tempGradient == gradients[14])) {
                                         graphicsLayer {
                                             scaleX =
@@ -2305,7 +2321,7 @@ fun UnifiedPlayer(
                                             scaleY =
                                                 if (isShowingLyrics || showthumbnail) (screenWidth / screenHeight) + 0.5f else 1f
                                             rotationZ =
-                                                if ((it == pagerStateFS.settledPage) && (isShowingLyrics || showthumbnail)) rotation.value else 0f
+                                                if ((index == pagerStateFS.settledPage) && (isShowingLyrics || showthumbnail)) rotation.value else 0f
                                         }
                                     }
                                     .combinedClickable(
@@ -2426,8 +2442,8 @@ fun UnifiedPlayer(
                                         ensureSongInserted = { Database.insert(mediaItem) },
                                         size = 1000.dp,
                                         mediaMetadataProvider = mediaItem::mediaMetadata,
-                                        durationProvider = { positionAndDuration.second.toLong() * 1000 },
-                                        positionProvider = { positionAndDuration.first.toLong() * 1000 },
+                                        durationProvider = { positionAndDuration.second },
+                                        //positionProvider = { positionAndDuration.first },
                                         isLandscape = isLandscape,
                                         clickLyricsText = clickLyricsText,
                                         modifier = Modifier
@@ -2529,6 +2545,7 @@ fun UnifiedPlayer(
                                                     )
                                                     .conditional(fadingedge) { horizontalFadingEdge() }
                                             ) { index ->
+                                                if (!(index < binder.player.mediaItemCount && index >= 0)) return@HorizontalPager
 
                                                 val coverPainter = rememberAsyncImagePainter(
                                                     model = ImageRequest.Builder(LocalContext.current)
@@ -2581,9 +2598,10 @@ fun UnifiedPlayer(
                                                             all = 10.dp
                                                         )
                                                     }
-                                                    .conditional(thumbnailType == ThumbnailType.Modern
-                                                        && coverThumbnailAnimation != ThumbnailCoverType.AudioCassette
-                                                        && coverThumbnailAnimation != ThumbnailCoverType.AudioCassetteWithCover
+                                                    .conditional(
+                                                        thumbnailType == ThumbnailType.Modern
+                                                                && coverThumbnailAnimation != ThumbnailCoverType.AudioCassette
+                                                                && coverThumbnailAnimation != ThumbnailCoverType.AudioCassetteWithCover
                                                     ) {
                                                         doubleShadowDrop(
                                                             if (showCoverThumbnailAnimation && !binder.player.getMediaItemAt(
@@ -2620,7 +2638,7 @@ fun UnifiedPlayer(
                                                             ThumbnailCoverType.CD, ThumbnailCoverType.Vinyl, ThumbnailCoverType.CDWithCover -> {
                                                                 RotateThumbnailCoverAnimationModern(
                                                                     painter = coverPainter,
-                                                                    isSongPlaying = binderPlayer.isPlaying || shouldBePlaying,
+                                                                    isSongPlaying = playerState.isPlaying,
                                                                     modifier = coverModifier
                                                                         .zIndex(
                                                                             if (index == pagerState.currentPage) 1f
@@ -2649,7 +2667,7 @@ fun UnifiedPlayer(
                                                                             else if (index == (pagerState.currentPage + 5) || index == (pagerState.currentPage - 5)) 0.63f
                                                                             else 0.57f
                                                                         ),
-                                                                    isPlaying = (binderPlayer.isPlaying || shouldBePlaying) && (index == pagerState.settledPage),
+                                                                    isPlaying = playerState.isPlaying && (index == pagerState.settledPage),
                                                                     painter = coverPainter,
                                                                     playerState = playerState,
                                                                     withCover = coverThumbnailAnimation == ThumbnailCoverType.AudioCassetteWithCover
@@ -2667,7 +2685,7 @@ fun UnifiedPlayer(
                                                                             else if (index == (pagerState.currentPage + 5) || index == (pagerState.currentPage - 5)) 0.63f
                                                                             else 0.57f
                                                                         ),
-                                                                    isPlaying = (binderPlayer.isPlaying || shouldBePlaying) && (index == pagerState.settledPage),
+                                                                    isPlaying = playerState.isPlaying && (index == pagerState.settledPage),
                                                                     painter = coverPainter,
                                                                 )
                                                             }
@@ -2726,7 +2744,9 @@ fun UnifiedPlayer(
                                                             painter = coverPainter,
                                                             contentDescription = "",
                                                             contentScale = ContentScale.Fit,
-                                                            modifier = Modifier.fillMaxSize(.5f).align(Alignment.Center)
+                                                            modifier = Modifier
+                                                                .fillMaxSize(.5f)
+                                                                .align(Alignment.Center)
                                                         )
                                                     }
                                                 }
@@ -2783,8 +2803,9 @@ fun UnifiedPlayer(
                                     if (pagerStateFS.currentPage > binder.player.currentTimeline.windowCount) 0 else pagerStateFS.currentPage
                                 } else if (pagerState.currentPage > binder.player.currentTimeline.windowCount) 0 else pagerState.currentPage).coerceIn(
                                     0,
-                                    (binderPlayer.mediaItemCount) - 1
+                                    (binder.player.mediaItemCount) - 1
                                 )
+                                if (!(index < binder.player.mediaItemCount && index >= 0)) return
 
                                 UnifiedControls(
                                     navController = navController,
@@ -2795,32 +2816,53 @@ fun UnifiedPlayer(
                                     timelineExpanded = timelineExpanded,
                                     controlsExpanded = controlsExpanded,
                                     isShowingLyrics = isShowingLyrics,
-                                    media = binderPlayer.getMediaItemAt(index)
+                                    media = binder.player.getMediaItemAt(index)
                                         .toUiMedia(positionAndDuration.second.toLong()),
-                                    title = binderPlayer.getMediaItemAt(index).mediaMetadata.title?.toString(),
-                                    artist = binderPlayer.getMediaItemAt(index).mediaMetadata.artist?.toString(),
+                                    title = binder.player.getMediaItemAt(index).mediaMetadata.title?.toString(),
+                                    artist = binder.player.getMediaItemAt(index).mediaMetadata.artist?.toString(),
                                     artistIds = artistsInfo,
                                     albumId = albumId,
-                                    isExplicit = binderPlayer.getMediaItemAt(index).isExplicit,
+                                    isExplicit = binder.player.getMediaItemAt(index).isExplicit,
                                     modifier = Modifier
                                         .padding(vertical = 8.dp),
                                     onPlay = {
-                                        if (binder.player.currentMediaItem?.isLocal == true)
-                                            binder.player.play()
-                                        else
-                                            binder.onlinePlayer?.play()
+                                        if (!GlobalSharedData.riTuneCastActive) {
+                                            if (binder.player.currentMediaItem?.isLocal == true)
+                                                binder.player.play()
+                                            else
+                                                binder.onlinePlayer?.play()
+                                        } else
+                                            CoroutineScope(Dispatchers.IO).launch {
+                                                riTuneClient.sendCommand(
+                                                    RiTuneRemoteCommand("play", mediaId = binder.player.getMediaItemAt(index).mediaId)
+                                                )
+                                            }
                                     },
                                     onPause = {
-                                        if (binder.player.currentMediaItem?.isLocal == true)
-                                            binder.player.pause()
-                                        else
-                                            binder.onlinePlayer?.pause()
+                                        if (!GlobalSharedData.riTuneCastActive) {
+                                            if (binder.player.currentMediaItem?.isLocal == true)
+                                                binder.player.pause()
+                                            else
+                                                binder.onlinePlayer?.pause()
+                                        } else
+                                            CoroutineScope(Dispatchers.IO).launch {
+                                                riTuneClient.sendCommand(
+                                                    RiTuneRemoteCommand("pause")
+                                                )
+                                            }
                                     },
                                     onSeekTo = {
-                                        if (binder.player.currentMediaItem?.isLocal == true)
-                                            binder.player.seekTo(it.toLong())
-                                        else
-                                            binder.onlinePlayer?.seekTo(it.div(1000))
+                                        if (!GlobalSharedData.riTuneCastActive) {
+                                            if (binder.player.currentMediaItem?.isLocal == true)
+                                                binder.player.seekTo(it.toLong())
+                                            else
+                                                binder.onlinePlayer?.seekTo(it.div(1000))
+                                        } else
+                                            CoroutineScope(Dispatchers.IO).launch {
+                                                riTuneClient.sendCommand(
+                                                    RiTuneRemoteCommand("seek", position = it.div(1000))
+                                                )
+                                            }
                                     },
                                     onNext = { binder.player.playNext() },
                                     onPrevious = {
@@ -2902,18 +2944,17 @@ fun UnifiedPlayer(
                                 circleOffsetY = it.y
                                 false
                             }
-                    ) { it ->
+                    ) { index ->
+                        if (!(index < binder.player.mediaItemCount && index >= 0)) return@HorizontalPager
 
                         var currentRotation by rememberSaveable {
                             mutableFloatStateOf(0f)
                         }
 
-                        val rotation = remember {
-                            Animatable(currentRotation)
-                        }
+                        val rotation = rememberSavableAnimatable(currentRotation)
 
-                        LaunchedEffect(binderPlayer.isPlaying, pagerStateFS.settledPage) {
-                            if (binderPlayer.isPlaying && it == pagerStateFS.settledPage) {
+                        LaunchedEffect(playerState.isPlaying, pagerStateFS.settledPage) {
+                            if (playerState.isPlaying && index == pagerStateFS.settledPage) {
                                 rotation.animateTo(
                                     targetValue = currentRotation + 360f,
                                     animationSpec = infiniteRepeatable(
@@ -2924,7 +2965,7 @@ fun UnifiedPlayer(
                                     currentRotation = value
                                 }
                             } else {
-                                if (currentRotation > 0f && it == pagerStateFS.settledPage) {
+                                if (currentRotation > 0f && index == pagerStateFS.settledPage) {
                                     rotation.animateTo(
                                         targetValue = currentRotation + 10,
                                         animationSpec = tween(
@@ -2941,7 +2982,7 @@ fun UnifiedPlayer(
                         Box(
                             modifier = Modifier
                                 .conditional((albumCoverRotation || (animatedGradient == AnimatedGradient.Random && tempGradient == gradients[14])) && (isShowingLyrics || showthumbnail)) {
-                                    zIndex(if (it == pagerStateFS.currentPage) 1f else 0.9f)
+                                    zIndex(if (index == pagerStateFS.currentPage) 1f else 0.9f)
                                 }
                                 .conditional(swipeAnimationNoThumbnail == SwipeAnimationNoThumbnail.Scale && isDraggedFS) {
                                     graphicsLayer {
@@ -2953,7 +2994,7 @@ fun UnifiedPlayer(
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current)
                                     .data(
-                                        binder.player.getMediaItemAt(it).mediaMetadata.artworkUri.toString().thumbnail(
+                                        binder.player.getMediaItemAt(index).mediaMetadata.artworkUri.toString().thumbnail(
                                             1200
                                         )
                                     )
@@ -2989,7 +3030,7 @@ fun UnifiedPlayer(
                                             scaleY =
                                                 if (isShowingLyrics || showthumbnail) (screenHeight / screenWidth) + 0.5f else 1f
                                             rotationZ =
-                                                if ((it == pagerStateFS.settledPage) && (isShowingLyrics || showthumbnail)) rotation.value else 0f
+                                                if ((index == pagerStateFS.settledPage) && (isShowingLyrics || showthumbnail)) rotation.value else 0f
                                         }
                                     }
                                     .conditional(swipeAnimationNoThumbnail == SwipeAnimationNoThumbnail.Fade && !showthumbnail) {
@@ -3001,7 +3042,7 @@ fun UnifiedPlayer(
                                     }
                                     .conditional(swipeAnimationNoThumbnail == SwipeAnimationNoThumbnail.Carousel && isDraggedFS) { //by sinasamaki
                                         graphicsLayer {
-                                            val startOffset = pagerStateFS.startOffsetForPage(it)
+                                            val startOffset = pagerStateFS.startOffsetForPage(index)
                                             translationX = size.width * (startOffset * .99f)
                                             alpha = (2f - startOffset) / 2f
                                             val blur = (startOffset * 20f).coerceAtLeast(0.1f)
@@ -3016,10 +3057,10 @@ fun UnifiedPlayer(
                                     }
                                     .conditional(swipeAnimationNoThumbnail == SwipeAnimationNoThumbnail.Circle && !showthumbnail) { //by sinasamaki
                                         graphicsLayer {
-                                            val pageOffset = pagerStateFS.offsetForPage(it)
+                                            val pageOffset = pagerStateFS.offsetForPage(index)
                                             translationX = size.width * pageOffset
 
-                                            val endOffset = pagerStateFS.endOffsetForPage(it)
+                                            val endOffset = pagerStateFS.endOffsetForPage(index)
                                             shadowElevation = 20f
 
                                             shape = CirclePath(
@@ -3033,13 +3074,13 @@ fun UnifiedPlayer(
                                             clip = true
 
                                             val absoluteOffset =
-                                                pagerStateFS.offsetForPage(it).absoluteValue
+                                                pagerStateFS.offsetForPage(index).absoluteValue
                                             val scale = 1f + (absoluteOffset.absoluteValue * .4f)
 
                                             scaleX = scale
                                             scaleY = scale
 
-                                            val startOffset = pagerStateFS.startOffsetForPage(it)
+                                            val startOffset = pagerStateFS.startOffsetForPage(index)
                                             alpha = (2f - startOffset) / 2f
                                         }
                                     }
@@ -3093,33 +3134,54 @@ fun UnifiedPlayer(
                                             timelineExpanded = timelineExpanded,
                                             controlsExpanded = controlsExpanded,
                                             isShowingLyrics = isShowingLyrics,
-                                            media = binderPlayer.getMediaItemAt(it)
+                                            media = binder.player.getMediaItemAt(index)
                                                 .toUiMedia(positionAndDuration.second.toLong()),
-                                            title = binderPlayer.getMediaItemAt(it).mediaMetadata.title?.toString(),
-                                            artist = binderPlayer.getMediaItemAt(it).mediaMetadata.artist?.toString(),
+                                            title = binder.player.getMediaItemAt(index).mediaMetadata.title?.toString(),
+                                            artist = binder.player.getMediaItemAt(index).mediaMetadata.artist?.toString(),
                                             artistIds = artistsInfo,
                                             albumId = albumId,
-                                            isExplicit = binderPlayer.getMediaItemAt(it).isExplicit,
+                                            isExplicit = binder.player.getMediaItemAt(index).isExplicit,
                                             modifier = Modifier
                                                 .padding(vertical = 4.dp)
                                                 .fillMaxWidth(),
                                             onPlay = {
-                                                if (binder.player.currentMediaItem?.isLocal == true)
-                                                    binder.player.play()
-                                                else
-                                                    binder.onlinePlayer?.play()
+                                                if (!GlobalSharedData.riTuneCastActive) {
+                                                    if (binder.player.currentMediaItem?.isLocal == true)
+                                                        binder.player.play()
+                                                    else
+                                                        binder.onlinePlayer?.play()
+                                                } else
+                                                    CoroutineScope(Dispatchers.IO).launch {
+                                                        riTuneClient.sendCommand(
+                                                            RiTuneRemoteCommand("play", mediaId = binder.player.getMediaItemAt(index).mediaId)
+                                                        )
+                                                    }
                                             },
                                             onPause = {
-                                                if (binder.player.currentMediaItem?.isLocal == true)
-                                                    binder.player.pause()
-                                                else
-                                                    binder.onlinePlayer?.pause()
+                                                if (!GlobalSharedData.riTuneCastActive) {
+                                                    if (binder.player.currentMediaItem?.isLocal == true)
+                                                        binder.player.pause()
+                                                    else
+                                                        binder.onlinePlayer?.pause()
+                                                } else
+                                                    CoroutineScope(Dispatchers.IO).launch {
+                                                        riTuneClient.sendCommand(
+                                                            RiTuneRemoteCommand("pause")
+                                                        )
+                                                    }
                                             },
                                             onSeekTo = {
-                                                if (binder.player.currentMediaItem?.isLocal == true)
-                                                    binder.player.seekTo(it.toLong())
-                                                else
-                                                    binder.onlinePlayer?.seekTo(it.div(1000))
+                                                if (!GlobalSharedData.riTuneCastActive) {
+                                                    if (binder.player.currentMediaItem?.isLocal == true)
+                                                        binder.player.seekTo(it.toLong())
+                                                    else
+                                                        binder.onlinePlayer?.seekTo(it.div(1000))
+                                                } else
+                                                    CoroutineScope(Dispatchers.IO).launch {
+                                                        riTuneClient.sendCommand(
+                                                            RiTuneRemoteCommand("seek", position = it.div(1000))
+                                                        )
+                                                    }
                                             },
                                             onNext = { binder.player.playNext() },
                                             onPrevious = {
@@ -3386,6 +3448,7 @@ fun UnifiedPlayer(
                                                 )
                                             }
                                     ) { index ->
+                                        if (!(index < binder.player.mediaItemCount && index >= 0)) return@VerticalPager
 
                                             val coverPainter = rememberAsyncImagePainter(
                                                 model = ImageRequest.Builder(LocalContext.current)
@@ -3445,9 +3508,10 @@ fun UnifiedPlayer(
                                                         all = 10.dp
                                                     )
                                                 }
-                                                .conditional(thumbnailType == ThumbnailType.Modern
-                                                        && coverThumbnailAnimation != ThumbnailCoverType.AudioCassette
-                                                        && coverThumbnailAnimation != ThumbnailCoverType.AudioCassetteWithCover
+                                                .conditional(
+                                                    thumbnailType == ThumbnailType.Modern
+                                                            && coverThumbnailAnimation != ThumbnailCoverType.AudioCassette
+                                                            && coverThumbnailAnimation != ThumbnailCoverType.AudioCassetteWithCover
                                                 ) {
                                                     doubleShadowDrop(
                                                         if (showCoverThumbnailAnimation && !binder.player.getMediaItemAt(
@@ -3484,7 +3548,7 @@ fun UnifiedPlayer(
                                                         ThumbnailCoverType.CD, ThumbnailCoverType.Vinyl, ThumbnailCoverType.CDWithCover -> {
                                                             RotateThumbnailCoverAnimationModern(
                                                                 painter = coverPainter,
-                                                                isSongPlaying = binderPlayer.isPlaying || shouldBePlaying,
+                                                                isSongPlaying = playerState.isPlaying,
                                                                 modifier = coverModifier
                                                                     .zIndex(
                                                                         if (index == pagerState.currentPage) 1f
@@ -3514,7 +3578,7 @@ fun UnifiedPlayer(
                                                                     else if (index == (pagerState.currentPage + 5) || index == (pagerState.currentPage - 5)) 0.63f
                                                                     else 0.57f
                                                                 ),
-                                                                isPlaying = (binderPlayer.isPlaying || shouldBePlaying) && (index == pagerState.settledPage),
+                                                                isPlaying = playerState.isPlaying && (index == pagerState.settledPage),
                                                                 painter = coverPainter,
                                                                 playerState = playerState,
                                                                 withCover = coverThumbnailAnimation == ThumbnailCoverType.AudioCassetteWithCover
@@ -3532,7 +3596,7 @@ fun UnifiedPlayer(
                                                                         else if (index == (pagerState.currentPage + 5) || index == (pagerState.currentPage - 5)) 0.63f
                                                                         else 0.57f
                                                                     ),
-                                                                isPlaying = (binderPlayer.isPlaying || shouldBePlaying) && (index == pagerState.settledPage),
+                                                                isPlaying = playerState.isPlaying && (index == pagerState.settledPage),
                                                                 painter = coverPainter,
                                                             )
                                                         }
@@ -3598,7 +3662,9 @@ fun UnifiedPlayer(
                                                         painter = coverPainter,
                                                         contentDescription = "",
                                                         contentScale = ContentScale.Fit,
-                                                        modifier = Modifier.fillMaxSize(.5f).align(Alignment.Center)
+                                                        modifier = Modifier
+                                                            .fillMaxSize(.5f)
+                                                            .align(Alignment.Center)
                                                     )
                                                 }
                                             }
@@ -3687,8 +3753,8 @@ fun UnifiedPlayer(
                                     ensureSongInserted = { Database.insert(mediaItem) },
                                     size = 1000.dp,
                                     mediaMetadataProvider = mediaItem::mediaMetadata,
-                                    durationProvider = { positionAndDuration.second.toLong() * 1000 },
-                                    positionProvider = { positionAndDuration.first.toLong() * 1000 },
+                                    durationProvider = { positionAndDuration.second },
+                                    //positionProvider = { positionAndDuration.first },
                                     isLandscape = isLandscape,
                                     clickLyricsText = clickLyricsText,
                                 )
@@ -3907,7 +3973,7 @@ fun UnifiedPlayer(
                                     if (pagerStateFS.currentPage > binder.player.currentTimeline.windowCount) 0 else pagerStateFS.currentPage
                                 } else if (pagerState.currentPage > binder.player.currentTimeline.windowCount) 0 else pagerState.currentPage).coerceIn(
                                     0,
-                                    (binderPlayer.mediaItemCount) - 1
+                                    (binder.player.mediaItemCount) - 1
                                 )
 
                                 UnifiedControls(
@@ -3919,33 +3985,61 @@ fun UnifiedPlayer(
                                     timelineExpanded = timelineExpanded,
                                     controlsExpanded = controlsExpanded,
                                     isShowingLyrics = isShowingLyrics,
-                                    media = binderPlayer.getMediaItemAt(index)
+                                    media = binder.player.getMediaItemAt(index)
                                         .toUiMedia(positionAndDuration.second.toLong()),
-                                    title = binderPlayer.getMediaItemAt(index).mediaMetadata.title?.toString(),
-                                    artist = binderPlayer.getMediaItemAt(index).mediaMetadata.artist?.toString(),
+                                    title = binder.player.getMediaItemAt(index).mediaMetadata.title?.toString(),
+                                    artist = binder.player.getMediaItemAt(index).mediaMetadata.artist?.toString(),
                                     artistIds = artistsInfo,
                                     albumId = albumId,
-                                    isExplicit = binderPlayer.getMediaItemAt(index).isExplicit,
+                                    isExplicit = binder.player.getMediaItemAt(index).isExplicit,
                                     modifier = Modifier
                                         .padding(vertical = 4.dp)
                                         .fillMaxWidth(),
                                     onPlay = {
-                                        if (binder.player.currentMediaItem?.isLocal == true)
-                                            binder.player.play()
-                                        else
-                                            binder.onlinePlayer?.play()
+                                        if (!GlobalSharedData.riTuneCastActive) {
+                                            if (binder.player.currentMediaItem?.isLocal == true)
+                                                binder.player.play()
+                                            else
+                                                binder.onlinePlayer?.play()
+                                        } else
+                                            CoroutineScope(Dispatchers.IO).launch {
+                                                withContext(Dispatchers.Main) {
+                                                    riTuneClient.sendCommand(
+                                                        RiTuneRemoteCommand(
+                                                            "play",
+                                                            mediaId = binder.player.getMediaItemAt(
+                                                                index
+                                                            ).mediaId
+                                                        )
+                                                    )
+                                                }
+                                            }
                                     },
                                     onPause = {
-                                        if (binder.player.currentMediaItem?.isLocal == true)
-                                            binder.player.pause()
-                                        else
-                                            binder.onlinePlayer?.pause()
+                                        if (!GlobalSharedData.riTuneCastActive) {
+                                            if (binder.player.currentMediaItem?.isLocal == true)
+                                                binder.player.pause()
+                                            else
+                                                binder.onlinePlayer?.pause()
+                                        } else
+                                            CoroutineScope(Dispatchers.IO).launch {
+                                                riTuneClient.sendCommand(
+                                                    RiTuneRemoteCommand("pause")
+                                                )
+                                            }
                                     },
                                     onSeekTo = {
-                                        if (binder.player.currentMediaItem?.isLocal == true)
-                                            binder.player.seekTo(it.toLong())
-                                        else
-                                            binder.onlinePlayer?.seekTo(it.div(1000))
+                                        if (!GlobalSharedData.riTuneCastActive) {
+                                            if (binder.player.currentMediaItem?.isLocal == true)
+                                                binder.player.seekTo(it.toLong())
+                                            else
+                                                binder.onlinePlayer?.seekTo(it.div(1000))
+                                        } else
+                                            CoroutineScope(Dispatchers.IO).launch {
+                                                riTuneClient.sendCommand(
+                                                    RiTuneRemoteCommand("seek", position = it.div(1000))
+                                                )
+                                            }
                                     },
                                     onNext = { binder.player.playNext() },
                                     onPrevious = {

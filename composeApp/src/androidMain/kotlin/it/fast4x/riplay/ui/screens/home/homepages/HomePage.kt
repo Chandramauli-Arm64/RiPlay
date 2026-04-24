@@ -43,6 +43,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -109,6 +110,7 @@ import it.fast4x.riplay.ui.items.ArtistItem
 import it.fast4x.riplay.ui.items.PlaylistItem
 import it.fast4x.riplay.ui.items.SongItem
 import it.fast4x.riplay.ui.items.VideoItem
+import it.fast4x.riplay.ui.styling.bold
 import it.fast4x.riplay.ui.styling.color
 import it.fast4x.riplay.ui.styling.secondary
 import it.fast4x.riplay.ui.styling.semiBold
@@ -120,9 +122,10 @@ import it.fast4x.riplay.utils.forcePlay
 import it.fast4x.riplay.utils.insertOrUpdateBlacklist
 import it.fast4x.riplay.utils.typography
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.ExperimentalSerializationApi
 import timber.log.Timber
 
-
+@ExperimentalSerializationApi
 @OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalMaterialApi
 @ExperimentalTextApi
@@ -324,13 +327,13 @@ fun HomePage(
         Database.preferitesArtistsByName().collect { preferitesArtists = it }
     }
 
-    val songThumbnailSizeDp = Dimensions.thumbnails.song
+    val songThumbnailSizeDp = Dimensions.thumbnails.song - 10.dp
     val songThumbnailSizePx = songThumbnailSizeDp.px
-    val albumThumbnailSizeDp = 108.dp
+    val albumThumbnailSizeDp = Dimensions.thumbnails.album
     val albumThumbnailSizePx = albumThumbnailSizeDp.px
-    val artistThumbnailSizeDp = 92.dp
+    val artistThumbnailSizeDp = Dimensions.thumbnails.artist
     val artistThumbnailSizePx = artistThumbnailSizeDp.px
-    val playlistThumbnailSizeDp = 108.dp
+    val playlistThumbnailSizeDp = Dimensions.thumbnails.playlist
     val playlistThumbnailSizePx = playlistThumbnailSizeDp.px
 
     val scrollState = rememberScrollState()
@@ -467,8 +470,11 @@ fun HomePage(
                             .padding(bottom = 8.dp)
                     )
 
-
-
+                    val density = LocalDensity.current
+                    val fontSize = typography().xs.semiBold.fontSize
+                    val textHeightDp = with(density) { fontSize.toDp() } * 2.5f
+                    val singleRowHeight = songThumbnailSizeDp + (Dimensions.itemsVerticalPadding * 2) + (textHeightDp * .2f)
+                    val totalGridHeight = singleRowHeight * (if (relatedPage != null) 3 else 1)
 
                     LazyHorizontalGrid (
                         state = quickPicksLazyGridState,
@@ -477,13 +483,12 @@ fun HomePage(
                         contentPadding = endPaddingValues,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(if (relatedPage != null) Dimensions.itemsVerticalPadding * 3 * 9 else Dimensions.itemsVerticalPadding * 9)
-                        //.height((songThumbnailSizeDp + Dimensions.itemsVerticalPadding * 2) * 4)
+                            .height(totalGridHeight)
+                            //.height(if (relatedPage != null) Dimensions.itemsVerticalPadding * 3 * 9 else Dimensions.itemsVerticalPadding * 9)
+                            //.height((songThumbnailSizeDp + (Dimensions.itemsVerticalPadding * 2)) * 3)
                     ) {
                         trending?.let { song ->
                             item {
-                                //val isLocal by remember { derivedStateOf { song.asMediaItem.isLocal } }
-                                //var forceRecompose by remember { mutableStateOf(false) }
                                 SongItem(
                                     song = song,
                                     thumbnailSizePx = songThumbnailSizePx,
@@ -639,7 +644,7 @@ fun HomePage(
 
                             BasicText(
                                 text = stringResource(R.string.new_albums_of_your_artists),
-                                style = typography().l.semiBold,
+                                style = typography().l.bold,
                                 modifier = sectionTextModifier
                             )
 
@@ -695,12 +700,12 @@ fun HomePage(
                         TitleMiniSection(
                             it.label ?: "", modifier = Modifier
                                 .padding(horizontal = 16.dp)
-                                .padding(top = 14.dp, bottom = 4.dp)
+                                .padding(top = 8.dp, bottom = 4.dp)
                         )
 
                         BasicText(
                             text = it.title,
-                            style = typography().l.semiBold.color(colorPalette().text),
+                            style = typography().l.bold.color(colorPalette().text),
                             modifier = Modifier
                                 .padding(horizontal = 16.dp)
                                 .padding(vertical = 4.dp)
@@ -806,8 +811,7 @@ fun HomePage(
                                 contentPadding = endPaddingValues,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    //.height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 8) * 8)
-                                    .height(Dimensions.itemsVerticalPadding * 4 * 8)
+                                    .height((songThumbnailSizeDp + Dimensions.itemsVerticalPadding) * 4)
                             ) {
                                 items(
                                     items = homePage?.chips?.sortedBy { it.title } ?: emptyList(),
@@ -817,7 +821,6 @@ fun HomePage(
                                         chip = it,
                                         onClick = { it.endpoint?.browseId?.let { _ -> onChipClick(it) } },
                                         modifier = Modifier
-                                            //.width(itemWidth)
                                             .padding(4.dp)
                                     )
                                 }
@@ -834,19 +837,16 @@ fun HomePage(
                                 Title(
                                     title = stringResource(R.string.genres),
                                     onClick = { navController.navigate(NavRoutes.moodsPage.name) },
-                                    //modifier = Modifier.fillMaxWidth(0.7f)
                                 )
 
                                 LazyHorizontalGrid(
                                     state = moodAngGenresLazyGridState,
                                     rows = GridCells.Fixed(4),
                                     flingBehavior = ScrollableDefaults.flingBehavior(),
-                                    //flingBehavior = rememberSnapFlingBehavior(snapLayoutInfoProvider),
                                     contentPadding = endPaddingValues,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        //.height((thumbnailSizeDp + Dimensions.itemsVerticalPadding * 8) * 8)
-                                        .height(Dimensions.itemsVerticalPadding * 4 * 8)
+                                        .height((songThumbnailSizeDp + Dimensions.itemsVerticalPadding) * 4)
                                 ) {
                                     items(
                                         items = page.moods.sortedBy { it.title },

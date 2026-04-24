@@ -10,6 +10,7 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import coil.request.CachePolicy
+import it.fast4x.riplay.cast.CastHelper
 import it.fast4x.riplay.data.DatabaseInitializer
 import it.fast4x.riplay.enums.CoilDiskCacheMaxSize
 import it.fast4x.riplay.utils.FileLoggingTree
@@ -21,7 +22,7 @@ import it.fast4x.riplay.extensions.preferences.preferences
 import it.fast4x.riplay.extensions.preferences.usePlaceholderInImageLoaderKey
 import it.fast4x.riplay.commonutils.initializeEnvironment
 import it.fast4x.riplay.extensions.crashreporter.CrashReporter
-import it.fast4x.riplay.service.PlayerService
+import it.fast4x.riplay.services.playback.PlayerService
 import timber.log.Timber
 import java.io.File
 

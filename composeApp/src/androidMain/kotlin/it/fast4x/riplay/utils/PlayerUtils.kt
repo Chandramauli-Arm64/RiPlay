@@ -2,18 +2,10 @@ package it.fast4x.riplay.utils
 
 
 import android.annotation.SuppressLint
-import android.content.ActivityNotFoundException
 import android.content.Context
-import android.content.Intent
-import android.media.audiofx.AudioEffect
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.State
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -39,7 +31,7 @@ import it.fast4x.riplay.extensions.preferences.excludeSongIfIsVideoKey
 import it.fast4x.riplay.extensions.preferences.excludeSongsWithDurationLimitKey
 import it.fast4x.riplay.extensions.preferences.getEnum
 import it.fast4x.riplay.extensions.preferences.preferences
-import it.fast4x.riplay.service.PlayerService
+import it.fast4x.riplay.services.playback.PlayerService
 import it.fast4x.riplay.ui.components.themed.SmartMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -67,6 +59,7 @@ val DataSpec.isLocalUri get() = uri.toString().startsWith("content://")
 
 val MediaItem.isLocal get() = mediaId.startsWith(LOCAL_KEY_PREFIX)
 val Song.isLocal get() = id.startsWith(LOCAL_KEY_PREFIX)
+val String.isLocal get() = this.startsWith(LOCAL_KEY_PREFIX)
 
 var GlobalVolume: Float = 0.5f
 
@@ -446,84 +439,6 @@ fun Player.getQueueWindows(): List<Timeline.Window> {
     return queue.toList()
 }
 
-fun Player.saveMasterQueue(currentOnlineSecond: Int) {
-    if (!isPersistentQueueEnabled()) return
-
-    CoroutineScope(Dispatchers.Main).launch {
-        val mediaItems = currentTimeline.mediaItems
-        val mediaItemIndex = currentMediaItemIndex
-        val mediaItemPosition = if (currentMediaItem?.isLocal == true) currentPosition else currentOnlineSecond * 1000L
-
-        Timber.d("SaveMasterQueue savePersistentQueue mediaItems ${mediaItems.size} mediaItemIndex $mediaItemIndex mediaItemPosition $mediaItemPosition")
-
-        if (mediaItems.isEmpty()) return@launch
-
-        withContext(Dispatchers.IO) {
-
-            mediaItems.mapIndexed { index, mediaItem ->
-                QueuedMediaItem(
-                    mediaItem = mediaItem,
-                    mediaId = mediaItem.mediaId,
-                    position = if (index == mediaItemIndex) mediaItemPosition else -1,
-                    idQueue = mediaItem.mediaMetadata.extras?.getLong("idQueue", defaultQueueId())
-                )
-            }.let { queuedMediaItems ->
-                if (queuedMediaItems.isEmpty()) return@let
-
-                try {
-                    Database.asyncTransaction {
-                        clearQueuedMediaItems()
-                        //insert(queuedMediaItems)
-                        //Timber.d("SaveMasterQueue QueuePersistentEnabled Saved mediaItems ${queuedMediaItems.size}")
-                        queuedMediaItems.forEach {
-                            insert(it)
-                        }
-                    }
-                } catch (e: Exception) {
-                    Timber.e("SaveMasterQueue QueuePersistentEnabled Error: ${e.message}")
-                }
-
-            }
-        }
-    }
-}
-
-@OptIn(UnstableApi::class)
-fun Player.loadMasterQueue(onLoaded: (Long) -> Unit) {
-    Timber.d("LoadMasterQueue loadPersistentQueue is enabled, called")
-    if (!isPersistentQueueEnabled()) return
-
-    Database.asyncQuery {
-        clearOldEmptyQueuedMediaItems()
-        val queuedSong = try { queuedMediaItems() } catch (e: Exception) { emptyList() }
-
-        if (queuedSong.isEmpty()) return@asyncQuery
-
-        val index = queuedSong.indexOfFirst { (it.position ?: 0L) >= 0L }.coerceAtLeast(0)
-        val mediaItemPosition = queuedSong[index].position ?: C.TIME_UNSET
-
-        Timber.d("LoadMasterQueue loadPersistentQueue is enabled, processing, restored index: $index and mediaItemPosition: $mediaItemPosition")
-
-        runBlocking(Dispatchers.Main) {
-            setMediaItems(
-                queuedSong.map { mediaItem ->
-                    mediaItem.mediaItem.buildUpon()
-                        .setUri(mediaItem.mediaItem.mediaId)
-                        .setCustomCacheKey(mediaItem.mediaItem.mediaId)
-                        .build().apply {
-                            mediaMetadata.extras?.putBoolean("isFromPersistentQueue", true)
-                            mediaMetadata.extras?.putLong("idQueue", mediaItem.idQueue ?: defaultQueueId())
-                        }
-                },
-                index,
-                 mediaItemPosition
-            )
-            prepare()
-        }
-        onLoaded(mediaItemPosition)
-    }
-}
-
 @Composable
 inline fun Player.DisposableListener(crossinline listenerProvider: () -> Player.Listener) {
     DisposableEffect(this) {
@@ -539,17 +454,26 @@ fun Player.positionAndDurationStateFlow(
     binder: PlayerService.Binder?
 ): StateFlow<Pair<Long, Long>> {
 
-    val initialValue = if (currentMediaItem?.isLocal == true) {
-        currentPosition to duration
-    } else {
-        ((binder?.onlinePlayerCurrentSecond?.toLong() ?: 0L) * 1000) to
-                ((binder?.onlinePlayerCurrentDuration?.toLong() ?: 0L) * 1000)
-    }
+    var onlineCurrentSecond = 0f
+    var onlineCurrentDuration = 0f
+    var playerIsPlaying = false
+
+    binder?.onlinePlayerCurrentSecond?.collectLatest(scope) { onlineCurrentSecond = it }
+    binder?.onlinePlayerCurrentDuration?.collectLatest(scope) { onlineCurrentDuration = it }
+    binder?.playerState?.collectLatest(scope) { playerIsPlaying = it.isPlaying }
+
+    fun currentPositionAndDuration(): Pair<Long, Long> =
+        if (currentMediaItem?.isLocal == true) {
+            currentPosition to duration
+        } else {
+            (onlineCurrentSecond.toLong() * 1000L) to (onlineCurrentDuration.toLong() * 1000L)
+        }
 
     return callbackFlow {
         var isSeeking = false
 
         val listener = object : Player.Listener {
+
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY) {
                     isSeeking = false
@@ -557,13 +481,8 @@ fun Player.positionAndDurationStateFlow(
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                val newValue = if (mediaItem?.isLocal == true) {
-                    currentPosition to duration
-                } else {
-                    ((binder?.onlinePlayerCurrentSecond?.toLong() ?: 0L) * 1000) to
-                            ((binder?.onlinePlayerCurrentDuration?.toLong() ?: 0L) * 1000)
-                }
-                trySend(newValue)
+                isSeeking = false
+                trySend(currentPositionAndDuration())
             }
 
             override fun onPositionDiscontinuity(
@@ -580,22 +499,12 @@ fun Player.positionAndDurationStateFlow(
 
         addListener(listener)
 
-        // Job per il polling continuo della posizione
         val pollJob = launch {
             while (isActive) {
-                delay(500) // Aggiorna ogni 500ms
-                if (!isSeeking) {
-                    val newValue = if (currentMediaItem?.isLocal == true) {
-                        currentPosition to duration
-                    } else {
-                        ((binder?.onlinePlayerCurrentSecond?.toLong() ?: 0L) * 1000) to
-                                ((binder?.onlinePlayerCurrentDuration?.toLong() ?: 0L) * 1000)
-                    }
-                    trySend(newValue)
-                }
+                delay(if (playerIsPlaying) 100L else 500L)
+                if (!isSeeking) trySend(currentPositionAndDuration())
             }
         }
-
 
         awaitClose {
             removeListener(listener)
@@ -604,7 +513,7 @@ fun Player.positionAndDurationStateFlow(
     }.stateIn(
         scope = scope,
         started = SharingStarted.Eagerly,
-        initialValue = initialValue
+        initialValue = currentPositionAndDuration()
     )
 }
 

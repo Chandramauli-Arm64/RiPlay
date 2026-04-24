@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -79,14 +78,14 @@ import it.fast4x.riplay.extensions.preferences.playerControlsTypeKey
 import it.fast4x.riplay.extensions.preferences.queueLoopTypeKey
 import it.fast4x.riplay.extensions.preferences.rememberPreference
 import it.fast4x.riplay.extensions.preferences.textoutlineKey
-import it.fast4x.riplay.service.PlaybackState
-import it.fast4x.riplay.service.PlayerState
+import it.fast4x.riplay.services.playback.PlaybackState
+import it.fast4x.riplay.services.playback.PlayerState
 import it.fast4x.riplay.ui.components.themed.IconButton
+import it.fast4x.riplay.ui.components.themed.PlayerCircularLoader
 import it.fast4x.riplay.ui.components.themed.SelectorArtistsDialog
 import it.fast4x.riplay.ui.components.themed.SmartMessage
 import it.fast4x.riplay.ui.screens.settings.isYtSyncEnabled
 import it.fast4x.riplay.ui.styling.bold
-import it.fast4x.riplay.ui.styling.collapsedPlayerProgressBar
 import it.fast4x.riplay.ui.styling.favoritesIcon
 import it.fast4x.riplay.ui.styling.semiBold
 import it.fast4x.riplay.utils.DisposableListener
@@ -108,7 +107,9 @@ import it.fast4x.riplay.utils.typography
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.serialization.ExperimentalSerializationApi
 
+@OptIn(ExperimentalSerializationApi::class)
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @UnstableApi
 @ExperimentalFoundationApi
@@ -407,6 +408,7 @@ fun UnifiedInfoAlbumAndArtistEssential(
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalFoundationApi::class)
+@ExperimentalSerializationApi
 @Composable
 fun UnifiedControlsEssential(
     playbackSpeed: Float,
@@ -620,10 +622,7 @@ fun UnifiedControlsEssential(
                     .size(imgSize)
                     .bounceClick()
             )
-        } else CircularProgressIndicator(
-            modifier = Modifier.align(Alignment.Center).size(imgSize),
-            color = colorPalette().collapsedPlayerProgressBar
-        )
+        } else PlayerCircularLoader(64.dp)
 
         val fmtSpeed = "%.1fx".format(playbackSpeed).replace(",", ".")
         if (fmtSpeed != "1.0x")

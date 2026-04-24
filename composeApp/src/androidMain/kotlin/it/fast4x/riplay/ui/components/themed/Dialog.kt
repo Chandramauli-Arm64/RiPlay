@@ -21,10 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredHeight
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -42,12 +39,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Checkbox
 import androidx.compose.material.CheckboxDefaults
-import androidx.compose.material.RadioButton
 import androidx.compose.material.Text
 import androidx.compose.material.TextField
 import androidx.compose.material.TextFieldDefaults
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -76,7 +71,6 @@ import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
@@ -91,7 +85,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.times
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.media3.common.PlaybackParameters
@@ -164,12 +157,12 @@ import it.fast4x.riplay.extensions.preferences.bassboostLevelKey
 import it.fast4x.riplay.extensions.preferences.disableScrollingTextKey
 import it.fast4x.riplay.utils.isValidHex
 import it.fast4x.riplay.utils.isValidHttpUrl
-import it.fast4x.riplay.utils.isValidUrl
 import it.fast4x.riplay.extensions.preferences.lyricsSizeKey
 import it.fast4x.riplay.extensions.preferences.lyricsSizeLKey
 import it.fast4x.riplay.utils.removeYTSongFromPlaylist
 import it.fast4x.riplay.extensions.preferences.thumbnailFadeExKey
 import it.fast4x.riplay.extensions.preferences.thumbnailSpacingLKey
+import it.fast4x.riplay.utils.getRoundnessShape
 import it.fast4x.riplay.utils.getUpdateDownloadUrl
 import it.fast4x.riplay.utils.isLocal
 import kotlinx.coroutines.CoroutineScope
@@ -178,6 +171,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
 
 
 @Composable
@@ -199,6 +193,7 @@ fun ConfirmationDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = colorPalette().background1,
         modifier = modifier,
 
         text = {
@@ -231,115 +226,6 @@ fun ConfirmationDialog(
         },
 
         confirmButton = {
-            if (confirmBackgroundPrimary) {
-
-                Button(
-                    onClick = {
-                        onConfirm()
-                        onDismiss()
-                    }
-                ) {
-                    Text(confirmText)
-                }
-            } else {
-
-                TextButton(
-                    onClick = {
-                        onConfirm()
-                        onDismiss()
-                    }
-                ) {
-                    Text(confirmText)
-                }
-            }
-        },
-
-
-        dismissButton = {
-            if (cancelBackgroundPrimary) {
-                Button(onClick = onCancel) {
-                    Text(cancelText)
-                }
-            } else {
-                TextButton(onClick = onCancel) {
-                    Text(cancelText)
-                }
-            }
-        }
-    )
-}
-
-/*
-@Composable
-fun ConfirmationDialog(
-    text: String,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-    onCheckBox: (Boolean) -> Unit = {},
-    modifier: Modifier = Modifier,
-    cancelText: String = stringResource(R.string.cancel),
-    confirmText: String = stringResource(R.string.confirm),
-    checkBoxText: String = "",
-    onCancel: () -> Unit = onDismiss,
-    cancelBackgroundPrimary: Boolean = false,
-    confirmBackgroundPrimary: Boolean = true
-) {
-    val checkedState = remember{
-        mutableStateOf(false)
-    }
-
-    DefaultDialog(
-        onDismiss = onDismiss,
-        modifier = modifier
-    ) {
-        BasicText(
-            text = text,
-            style = typography().xs.medium.center,
-            modifier = Modifier
-                .padding(all = 16.dp)
-        )
-
-        if (checkBoxText != "") {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
-                Checkbox(
-                    checked = checkedState.value,
-                    onCheckedChange = {
-                        checkedState.value = it
-                        onCheckBox(it)
-                    },
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = colorPalette().accent,
-                        uncheckedColor = colorPalette().text
-                    ),
-                    modifier = Modifier
-                        .scale(0.7f)
-                )
-                BasicText(
-                    text = checkBoxText, //stringResource(R.string.set_custom_value),
-                    style = typography().xs.medium,
-                    maxLines = 2,
-                    modifier = Modifier
-                )
-
-            }
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            modifier = Modifier
-                .fillMaxWidth()
-        ) {
-            DialogTextButton(
-                text = cancelText,
-                primary = cancelBackgroundPrimary,
-                onClick = onCancel
-            )
-
             DialogTextButton(
                 text = confirmText,
                 primary = confirmBackgroundPrimary,
@@ -348,10 +234,18 @@ fun ConfirmationDialog(
                     onDismiss()
                 }
             )
+        },
+
+
+        dismissButton = {
+            DialogTextButton(
+                text = cancelText,
+                primary = cancelBackgroundPrimary,
+                onClick = onCancel
+            )
         }
-    }
+    )
 }
-*/
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -371,7 +265,7 @@ inline fun DefaultDialog(
                 .padding(all = 10.dp)
                 .background(
                     color = colorPalette().background1,
-                    shape = RoundedCornerShape(8.dp)
+                    shape = getRoundnessShape()
                 )
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             content = content
@@ -394,7 +288,7 @@ fun <T> ValueSelectorDialog(
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = modifier,
-            shape = RoundedCornerShape(8.dp),
+            shape = getRoundnessShape(),
             tonalElevation = 6.dp,
             color = colorPalette().background1
         ) {
@@ -752,7 +646,7 @@ inline fun SelectorDialog(
 }
 
  */
-
+@ExperimentalSerializationApi
 @Composable
 fun SelectorArtistsDialog(
     onDismiss: () -> Unit,
@@ -767,7 +661,7 @@ fun SelectorArtistsDialog(
 
     val dialogSize = if (isLandscape) (screenHeight * 0.85f) else (screenWidth * 0.85f)
 
-    val thumbnailRoundness by rememberPreference(thumbnailRoundnessKey, ThumbnailRoundness.Heavy)
+    val thumbnailRoundness by rememberPreference(thumbnailRoundnessKey, ThumbnailRoundness.Light)
     val colorPaletteMode by rememberPreference(colorPaletteModeKey, ColorPaletteMode.Dark)
 
     Dialog(onDismissRequest = onDismiss) {
@@ -1811,11 +1705,12 @@ fun NewVersionDialog (
     updatedProductName: String,
     updatedVersionName: String,
     updatedVersionCode: Int,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onClose: () -> Unit
 ) {
     val uriHandler = LocalUriHandler.current
     DefaultDialog(
-        onDismiss = { onDismiss() },
+        onDismiss = onClose,
         content = {
             BasicText(
                 text = stringResource(R.string.update_available),
@@ -1881,7 +1776,7 @@ fun NewVersionDialog (
                         .size(30.dp)
                         .clickable {
                             onDismiss()
-                            uriHandler.openUri(getUpdateDownloadUrl())
+                            uriHandler.openUri(getUpdateDownloadUrl(updatedVersionName))
                         }
                 )
             }
@@ -2510,6 +2405,7 @@ fun InProgressDialog(
     }
 }
 
+@ExperimentalSerializationApi
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun SongMatchingDialog(

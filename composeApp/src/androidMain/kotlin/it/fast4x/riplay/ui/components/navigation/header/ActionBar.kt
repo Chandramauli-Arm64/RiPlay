@@ -23,13 +23,11 @@ import it.fast4x.riplay.extensions.equalizer.InternalEqualizerScreen
 import it.fast4x.riplay.extensions.equalizer.rememberSystemEqualizerLauncher
 import it.fast4x.riplay.extensions.pip.isPipSupported
 import it.fast4x.riplay.extensions.pip.rememberPipHandler
-import it.fast4x.riplay.extensions.preferences.castToRiTuneDeviceEnabledKey
 import it.fast4x.riplay.extensions.preferences.enableMusicIdentifierKey
 import it.fast4x.riplay.extensions.preferences.enablePictureInPictureKey
 import it.fast4x.riplay.extensions.preferences.equalizerTypeKey
 import it.fast4x.riplay.extensions.preferences.rememberObservedPreference
 import it.fast4x.riplay.extensions.preferences.rememberPreference
-import it.fast4x.riplay.extensions.ritune.improved.RiTuneSelector
 import it.fast4x.riplay.ui.components.LocalGlobalSheetState
 import it.fast4x.riplay.ui.components.SheetBody
 import it.fast4x.riplay.utils.colorPalette
@@ -38,11 +36,9 @@ import it.fast4x.riplay.ui.screens.events.EventsScreen
 import it.fast4x.riplay.ui.screens.settings.isYtLoggedIn
 import it.fast4x.riplay.utils.MusicIdentifier
 import it.fast4x.riplay.utils.ytAccountThumbnail
-import timber.log.Timber
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,7 +48,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.window.PopupProperties
+import it.fast4x.riplay.BuildConfig
+import it.fast4x.riplay.LocalRiTuneSheetState
+import it.fast4x.riplay.cast.CastButton
+import it.fast4x.riplay.cast.CastHelper
+import it.fast4x.riplay.enums.CastType
+import it.fast4x.riplay.extensions.preferences.castTypeKey
+import it.fast4x.riplay.utils.GlobalSharedData
+import it.fast4x.riplay.utils.getRoundnessShape
 import it.fast4x.riplay.utils.typography
+import timber.log.Timber
 
 @Composable
 private fun HamburgerMenu(
@@ -80,7 +85,7 @@ private fun HamburgerMenu(
 
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(24.dp))
+                .clip(getRoundnessShape())
                 .background(
                     color = colorPalette().background1.copy(alpha = 0.90f),
                 )
@@ -228,7 +233,7 @@ private fun ModernMenuItem(
             containerColor = Color.Transparent, // Sfondo trasparente per usare il nostro
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        shape = RoundedCornerShape(16.dp), // Bottoni con angoli smussati
+        shape = getRoundnessShape(), // Bottoni con angoli smussati
         elevation = null, // Niente ombra standard
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
     ) {
@@ -393,20 +398,21 @@ fun ActionBar(
     var expanded by remember { mutableStateOf(false) }
     val sheet = LocalGlobalSheetState.current
 
-    var castToRiTuneDeviceEnabled by rememberPreference(castToRiTuneDeviceEnabledKey, false )
-    var showRiTuneSelector by remember { mutableStateOf(false) }
-
-    if (showRiTuneSelector) {
-        RiTuneSelector(
-            onDismiss = {
-                showRiTuneSelector = false
-            },
-            onSelect = {
-                Timber.d("RiTuneSelector: $it")
-                //castToRiTuneDeviceActive = it.any { device -> device.selected }
-            }
-        )
+    var castType by rememberPreference(castTypeKey, CastType.RITUNECAST )
+    if (castType == CastType.RITUNECAST) {
+        val showCastScreen = LocalRiTuneSheetState.current
+        HeaderIcon(
+            if (GlobalSharedData.riTuneCastActive) R.drawable.cast_connected else R.drawable.cast_disconnected,
+            tint = colorPalette().accent
+        ) {
+            showCastScreen.expandSoft()
+        }
     }
+
+    if (CastHelper.isCastAvailable && castType !in listOf(CastType.NONE, CastType.RITUNECAST)) {
+        CastButton()
+    }
+
 
     /* todo maybe nor right place
     val equalizer = LocalPlayerServiceBinder.current?.equalizer
@@ -421,12 +427,6 @@ fun ActionBar(
     }
      */
 
-    // todo cast to complete
-//    if (castToRiTuneDeviceEnabled)
-//        HeaderIcon(if (GlobalSharedData.riTuneCastActive) R.drawable.cast_connected else R.drawable.cast_disconnected) {
-//            showRiTuneSelector = true
-//            //navController.navigate(NavRoutes.ritunecontroller.name)
-//        }
 
     val isEnabledMusicIdentifier by rememberPreference(
         enableMusicIdentifierKey,

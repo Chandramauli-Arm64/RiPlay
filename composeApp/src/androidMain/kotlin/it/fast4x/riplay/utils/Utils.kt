@@ -4,33 +4,25 @@ package it.fast4x.riplay.utils
 import android.annotation.SuppressLint
 import android.os.Build
 import android.text.format.DateUtils
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import it.fast4x.kugou.KuGou
-import it.fast4x.lrclib.LrcLib
-import it.fast4x.riplay.commonutils.cleanPrefix
-import it.fast4x.riplay.commonutils.durationTextToMillis
-import it.fast4x.riplay.data.Database
-import it.fast4x.riplay.data.models.Lyrics
-import it.fast4x.riplay.data.models.SongEntity
 import it.fast4x.riplay.extensions.preferences.rememberObservedPreference
 import it.fast4x.riplay.extensions.preferences.shortOnDeviceFolderNameKey
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.time.Duration
 import java.util.Calendar
 import java.util.GregorianCalendar
 import java.util.Locale.getDefault
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
+import androidx.compose.runtime.saveable.Saver
 
 
 const val EXPLICIT_BUNDLE_TAG = "is_explicit"
@@ -159,4 +151,63 @@ fun String.cleanOnDeviceName(): String {
     val shortOnDeviceFolderName by rememberObservedPreference(shortOnDeviceFolderNameKey, false)
     return if (shortOnDeviceFolderName)
          this.substringAfterLast("/") else this
+}
+
+fun String.htmlToJson(): String {
+    var rawString = this.trim()
+
+    if (rawString.startsWith("\"") && rawString.endsWith("\""))
+        rawString = rawString.substring(1, this.length - 1)
+
+    if (rawString.endsWith("\\n"))
+        rawString = rawString.take(this.length - 3)
+
+    rawString = rawString.replace("\\", "").replace("n[", "\n[")
+
+    return rawString
+}
+
+fun String.decodeHtmlAndUnicode(): String {
+    var result = this
+
+    result = result
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+
+    val unicodeRegex = """\\?u([0-9a-fA-F]{4})""".toRegex()
+
+    result = unicodeRegex.replace(result) { matchResult ->
+        val hexCode = matchResult.groupValues[1]
+        try {
+            val charCode = hexCode.toInt(16)
+            charCode.toChar().toString()
+        } catch (e: Exception) {
+            matchResult.value
+        }
+    }
+
+    return result
+}
+
+@Composable
+fun rememberSavableAnimatable(initialValue: Float): Animatable<Float, AnimationVector1D> {
+    val animatableSaver = Saver<Animatable<Float, AnimationVector1D>, Float>(
+        save = { it.value },
+        restore = { savedValue ->
+            Animatable(savedValue)
+        }
+    )
+
+    return rememberSaveable(saver = animatableSaver) {
+        Animatable(initialValue)
+    }
+}
+
+fun formatTime(seconds: Float): String {
+    val mins = (seconds / 60).toInt()
+    val secs = (seconds % 60).toInt()
+    return String.format("%02d:%02d", mins, secs)
 }

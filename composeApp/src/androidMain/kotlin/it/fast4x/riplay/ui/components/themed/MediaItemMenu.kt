@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -148,10 +147,13 @@ import it.fast4x.riplay.extensions.preferences.thumbnailRoundnessKey
 import it.fast4x.riplay.ui.styling.secondary
 import it.fast4x.riplay.utils.SetupWriteSettingsPermission
 import it.fast4x.riplay.utils.getLocalFileUri
+import it.fast4x.riplay.utils.getRoundnessShape
 import it.fast4x.riplay.utils.removeFromOnlineLikedSong
 import it.fast4x.riplay.utils.setRingtoneSmart
+import kotlinx.serialization.ExperimentalSerializationApi
 import timber.log.Timber
 
+@ExperimentalSerializationApi
 @ExperimentalTextApi
 @ExperimentalAnimationApi
 @androidx.media3.common.util.UnstableApi
@@ -201,6 +203,7 @@ fun InHistoryMediaItemMenu(
     )
 }
 
+@ExperimentalSerializationApi
 @ExperimentalTextApi
 @UnstableApi
 @ExperimentalAnimationApi
@@ -280,6 +283,7 @@ fun InPlaylistMediaItemMenu(
     )
 }
 
+@ExperimentalSerializationApi
 @ExperimentalTextApi
 @UnstableApi
 @ExperimentalAnimationApi
@@ -437,6 +441,7 @@ fun NonQueuedMediaItemMenuLibrary(
 @ExperimentalTextApi
 @UnstableApi
 @ExperimentalAnimationApi
+@ExperimentalSerializationApi
 @Composable
 fun NonQueuedMediaItemMenu(
     navController: NavController,
@@ -529,6 +534,7 @@ fun NonQueuedMediaItemMenu(
     }
 }
 
+@ExperimentalSerializationApi
 @ExperimentalTextApi
 @UnstableApi
 @ExperimentalAnimationApi
@@ -648,7 +654,7 @@ fun QueuedMediaItemMenu(
     }
 }
 
-
+@ExperimentalSerializationApi
 @ExperimentalTextApi
 @UnstableApi
 @ExperimentalAnimationApi
@@ -766,6 +772,7 @@ fun BaseMediaItemMenu(
 
 }
 
+@ExperimentalSerializationApi
 @ExperimentalTextApi
 @UnstableApi
 @ExperimentalAnimationApi
@@ -898,6 +905,7 @@ fun FolderItemMenu(
     }
 }
 
+@ExperimentalSerializationApi
 @ExperimentalTextApi
 @SuppressLint("SuspiciousIndentation")
 @UnstableApi
@@ -950,16 +958,11 @@ fun MediaItemMenu(
         mutableStateOf(0.dp)
     }
 
-    //println("mediaItem in MediaItemMenu albumId ${mediaItem.mediaMetadata.extras?.getString("albumId")}")
-
-
     var albumInfo by remember {
         mutableStateOf(mediaItem.mediaMetadata.extras?.getString("albumId")?.let { albumId ->
             Info(albumId, null)
         })
     }
-
-    //println("mediaItem in MediaItemMenu albumInfo albumId ${albumInfo?.id}")
 
     var artistsInfo by remember {
         mutableStateOf(
@@ -977,9 +980,6 @@ fun MediaItemMenu(
         mutableStateOf<Long?>(null)
     }
 
-    var downloadState by remember {
-        mutableStateOf(Download.STATE_STOPPED)
-    }
 
     var artistsList by persistList<Artist?>("home/artists")
     var artistIds = remember { mutableListOf("") }
@@ -1096,8 +1096,7 @@ fun MediaItemMenu(
             val unpinnedPlaylists = playlistPreviewsFiltered.filter {
                 !it.playlist.name.startsWith(PINNED_PREFIX, 0, true) &&
                 !it.playlist.name.startsWith(MONTHLY_PREFIX, 0, true) &&
-                        !it.playlist.isYoutubePlaylist //&&
-                //!it.playlist.name.startsWith(PIPED_PREFIX, 0, true)
+                        !it.playlist.isYoutubePlaylist
             }
 
             var isCreatingNewPlaylist by rememberSaveable {
@@ -1115,16 +1114,7 @@ fun MediaItemMenu(
                         onAddToPlaylist(Playlist(name = text), 0)
                     }
                 )
-                /*
-                TextFieldDialog(
-                    hintText = "Enter the playlist name",
-                    onDismiss = { isCreatingNewPlaylist = false },
-                    onDone = { text ->
-                        onDismiss()
-                        onAddToPlaylist(Playlist(name = text), 0)
-                    }
-                )
-                 */
+
             }
 
             BackHandler {
@@ -1135,12 +1125,11 @@ fun MediaItemMenu(
 
             var thumbnailRoundness by rememberPreference(
                 thumbnailRoundnessKey,
-                ThumbnailRoundness.Heavy
+                ThumbnailRoundness.Light
             )
 
             Menu(
                 modifier = modifier
-                    //.requiredHeight(height)
             ) {
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1467,11 +1456,8 @@ fun MediaItemMenu(
 
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         IconButton(
-                            //icon = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
                             icon = getLikeState(mediaItem.mediaId),
-                            //icon = R.drawable.heart,
                             color = colorPalette().favoritesIcon,
-                            //color = if (likedAt == null) colorPalette().textDisabled else colorPalette().text,
                             onClick = {
                                 if (!isNetworkConnected(appContext()) && isYtSyncEnabled()) {
                                     SmartMessage(appContext().resources.getString(R.string.no_connection), context = appContext(), type = PopupType.Error)
@@ -1760,6 +1746,8 @@ fun MediaItemMenu(
                     val positionAndDuration by playerViewModel.positionAndDuration.collectAsStateWithLifecycle()
                     val timeRemaining = positionAndDuration.second.toInt() - positionAndDuration.first.toInt()
 
+                    Timber.d("SleepTimer sleepTimerMillisLeft $sleepTimerMillisLeft timeRemaining $timeRemaining")
+
                     if (isShowingSleepTimerDialog) {
                         if (sleepTimerMillisLeft != null) {
                             ConfirmationDialog(
@@ -1864,10 +1852,10 @@ fun MediaItemMenu(
                                     ) {
                                         SecondaryTextButton(
                                             text = stringResource(R.string.set_to) + " "
-                                                    + formatAsDuration(if (mediaItem.isLocal) timeRemaining.toLong() else timeRemaining * 1000L)
+                                                    + formatAsDuration(timeRemaining.toLong() )
                                                     + " " + stringResource(R.string.end_of_song),
                                             onClick = {
-                                                binder?.startSleepTimer(if (mediaItem.isLocal) timeRemaining.toLong() else timeRemaining * 1000L)
+                                                binder?.startSleepTimer(timeRemaining.toLong() )
                                                 isShowingSleepTimerDialog = false
                                             }
                                         )
@@ -1929,7 +1917,7 @@ fun MediaItemMenu(
                                     modifier = modifier
                                         .background(
                                             color = colorPalette().background0,
-                                            shape = RoundedCornerShape(16.dp)
+                                            shape = getRoundnessShape()
                                         )
                                         .padding(horizontal = 16.dp, vertical = 8.dp)
                                         .animateContentSize()
